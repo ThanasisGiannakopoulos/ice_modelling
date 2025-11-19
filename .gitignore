@@ -1,4 +1,11 @@
 # Ignore everything in notes/ apart from .tex and .bib files
-!notes/
-!notes/notes.tex
-!notes/refs.bib
+notes/notes.aux
+notes/notes.log
+notes/notes.out
+notes/notes.pdf
+notes/notes.synctex.gz
+notes/notes.toc
+notes/notes.bbl
+notes/notes.blg
+notes/notes.fls
+notes/notes.fdb_latexmk

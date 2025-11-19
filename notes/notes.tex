@@ -1,0 +1,67 @@
+% /home/tgia02/repos/ice_modelling/notes.tex
+\documentclass[11pt,a4paper]{article}
+
+% Encoding & fonts
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% Page layout
+\usepackage[margin=1in]{geometry}
+
+% Maths
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+
+% Utilities
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+
+% Short commands
+\newcommand{\p}{\partial}
+
+% Document
+\title{Ice modelling notes}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+
+\section{Notation}
+
+Assuming Cartesian coordinates $(x,y,z)$, with $z$ vertical and $x,y$ horizontal (maybe not very strict mathematically).
+\begin{itemize}
+    \item Gradient: $\nabla f:= (\p_x f, \p_y f, \p_z f)$ (vector)
+    \item Divergence: $ \nabla \, . \mathbf{u} := \p_x u_x + \p_y u_y + \p_z u_z$ (scalar), where $\mathbf{u} = (u_x, u_y, u_z)$
+    \item Material derivative: $\frac{D f}{D t} := \p_t f + \mathbf{u} \, . \, \nabla f = \p_t f + u_x \p_x f + u_y \p_y f  + u_z \p_z f$ (scalar), where $\mathbf{u}$ is the fluid velocity wrt an Eulerian observer. 
+\end{itemize}
+
+\section{Terminology}
+
+\begin{itemize}
+    \item Strain rate tensor: $\dot{\epsilon}_{ij} = \frac{1}{2} \left( \p_i u_j + \p_j u_i \right)$
+    \item Deviatoric stress tensor: $\tau_{ij} = \sigma_{ij} - \frac{1}{3} \sigma_{kk} \delta_{ij}$ (Einstein summation notation used): the stress tensor minus the isotropic part (pressure) (how much the stress state deviated from being isotropic). 
+    \item Rheology: relation between force and deformation of material. For mathematical modelling that is a stress and velocity relation. The velocity itself is not relevant since it can change by changing frame. The relative velocity of neighbouring points is relevant, and is captured by the strain rate tensor.
+\end{itemize}
+\section{Full Stokes Equations}
+
+\cite{karthaus_notes}
+
+\section{Shallow Ice Approximation (SIA)}
+
+\section{Shallow Shelf Approximation (SSA)}
+
+\section{Depth integrated models}
+
+\section{Fracture}
+
+\bibliographystyle{apalike}
+\bibliography{refs}
+
+\end{document}
