@@ -1,0 +1,4 @@
+# Ignore everything in notes/ apart from .tex and .bib files
+!notes/
+!notes/notes.tex
+!notes/refs.bib
