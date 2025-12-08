@@ -10,7 +10,7 @@ with D = Γ*h^5*|∂_x*h|^2
 where h is evaluated at midpoints (i+1/2) and ∂_x is 1st order accurate FD
 Γ is constant (includes the rate A which is assumed temperature independent here)
 
-Analyitical solution: Halfar
+Analytical solution: Halfar
 see Karthaus notes chap. 8
 """
 
@@ -26,8 +26,8 @@ function my_midpoint(f)
     return f_mid
 end
 
-# 1st order accurate forward finite difference
-function FD1_forward(f, dx)
+# 1st order accurate backward finite difference
+function FD1_backward(f, dx)
     N = length(f)
     f_x = zeros(N + 1)
     for i in 2:N
@@ -42,14 +42,14 @@ end
 function build_D(Gamma, h, dx)
     D = zeros(length(h)+1)
     h_midpoints = my_midpoint(h)
-    h_x = FD1_forward(h,dx)
+    h_x = FD1_backward(h,dx)
     D .= Gamma * h_midpoints.^5 .* h_x.^2
     return D
 end
 
 function compute_flux(Gamma, h, dx)
     D = build_D(Gamma, h, dx)
-    q = D .* FD1_forward(h,dx)
+    q = D .* FD1_backward(h,dx)
     return D, q
 end
 
@@ -68,7 +68,7 @@ function rhs(q, dx)
     Nx = length(q)-1
     f = zeros(Nx)
     for i in 1:Nx
-        f[i] = (q[i+1] - q[i])/dx
+        f[i] = (q[i+1] - q[i])/dx # forward FD
     end
 
     return f 
@@ -124,8 +124,8 @@ function evol(x, h0, t0, tf, print_every, save_every)
         # save h, t, etc
         if step % save_every == 0
             append!(h_list, [copy(h)])
-            append!(t_list, t/secpera)
-            append!(dt_list, dt/secpera)
+            append!(t_list, t)
+            append!(dt_list, dt)
             append!(f_list, [copy(f)])
         end
         
@@ -161,7 +161,7 @@ function Halfar(t,x)
     #r = r / R0
     # retrict in x only
     x = x / R0
-    t = t*secpera / t0
+    t = t / t0
     inside = zeros(length(x))
     for i in 1:length(x)
         test = 1.0 - (abs(x[i]) / t^beta)^((n+1) / n)
@@ -174,23 +174,25 @@ function Halfar(t,x)
 end
 
 # for the run
-Nx = 300
-L  = 100e3
-x = range(0, L, length=Nx)
+res = 2 # double resol
+Nx = 2^res*1000
+L  = 1000e3
+#L  = 100e3
+x = range(-L, L, length=Nx)
 
 secpera = 365*24*3600 # seconds per one year
-t0 = 0*secpera
-tf = 100000*secpera
+t0 = 100*secpera
+tf = 1e3*secpera
 
-#h0 = Halfar(t0, x)
+h0 = Halfar(t0, x)
 # ---------------- Initial condition ----------------
-H = 200 .* exp.(-(x .- L/2).^2 ./ (15e3)^2)
-h0 = copy(H)
+#H = 200 .* exp.(-(x .- L/2).^2 ./ (15e3)^2)
+#h0 = copy(H)
 
-print_every = 100
-save_every  = 200
+print_every = 200*2^res
+save_every  = 400*2^res
 
 h_list, t_list, dt_list, f_list = evol(x, h0, t0, tf, print_every, save_every)
 
 # Save
-serialize("solution.jls", (x, h_list, t_list, dt_list, f_list))
+serialize("solution_$(res)res.jls", (x, h_list, t_list, dt_list, f_list))
