@@ -158,7 +158,7 @@ function Halfar(t,x)
 end
 
 # for the run
-res = 0 # double resol
+res = 1 # double resol
 Nx = 2^res*64
 L  = 1.7*1000e3
 #L  = 100e3
