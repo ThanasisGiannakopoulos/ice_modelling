@@ -26,6 +26,18 @@ function my_midpoint(f)
     return f_mid
 end
 
+# 1st order accurate forward finite difference
+function FD1_forward(f, dx)
+    N = length(f)
+    f_x = zeros(N + 1)
+    for i in 1:N-1
+        f_x[i] = (f[i+1] - f[i]) / dx
+    end
+
+    #f_x[end] = 0.0
+    return f_x
+end
+
 # 1st order accurate backward finite difference
 function FD1_backward(f, dx)
     N = length(f)
@@ -87,8 +99,8 @@ function evol(x, h0, t0, tf, print_every, save_every)
     secpera = 365*24*3600 # seconds per one year
     g       = 9.81
     rho     = 910.0
-    A       = 1e-16/secpera # rate factor, assumed temperature independent in this SIA model
-    Gamma   = 2*A*(rho*g)^3/5   # for n=3 Glenn's law
+    A       = 1.0e-16/secpera # rate factor, assumed temperature independent in this SIA model
+    Gamma   = 2.0*A*(rho*g)^3/5   # for n=3 Glenn's law
 
     # grid spacing
     dx = x[2] - x[1]
@@ -103,7 +115,8 @@ function evol(x, h0, t0, tf, print_every, save_every)
 
      # start time evolution
     step = 0
-
+    dt = 0.0
+    f = 0.0*similar(h)
     while t<tf
         
         # calculate D, f, dt
@@ -136,6 +149,12 @@ function evol(x, h0, t0, tf, print_every, save_every)
         
     end # end while
 
+    # save last timestep
+    append!(h_list, [copy(h)])
+    append!(t_list, t)
+    append!(dt_list, dt)
+    append!(f_list, [copy(f)])
+
     return h_list, t_list, dt_list, f_list
 
 end # end evol
@@ -162,8 +181,9 @@ function Halfar(t,x)
     # retrict in x only
     x = x / R0
     t = t / t0
-    inside = zeros(length(x))
-    for i in 1:length(x)
+    Nx = length(x)
+    inside = zeros(Nx)
+    for i in 1:Nx
         test = 1.0 - (abs(x[i]) / t^beta)^((n+1) / n)
         if test > 0
             inside[i] = test
@@ -174,15 +194,15 @@ function Halfar(t,x)
 end
 
 # for the run
-res = 2 # double resol
-Nx = 2^res*1000
-L  = 1000e3
+res = 0 # double resol
+Nx = 2^res*64
+L  = 1.7*1000e3
 #L  = 100e3
 x = range(-L, L, length=Nx)
 
 secpera = 365*24*3600 # seconds per one year
-t0 = 100*secpera
-tf = 1e3*secpera
+t0 = 200*secpera
+tf = 2e4*secpera
 
 h0 = Halfar(t0, x)
 # ---------------- Initial condition ----------------
@@ -195,4 +215,8 @@ save_every  = 400*2^res
 h_list, t_list, dt_list, f_list = evol(x, h0, t0, tf, print_every, save_every)
 
 # Save
-serialize("solution_$(res)res.jls", (x, h_list, t_list, dt_list, f_list))
+# mkdir if it does not exist already
+if isdir("./runs/")==false
+    mkdir("./runs/")
+end
+serialize("runs/solution_$(res)res.jls", (x, h_list, t_list, dt_list, f_list))

@@ -48,12 +48,140 @@ Assuming Cartesian coordinates $(x,y,z)$, with $z$ vertical and $x,y$ horizontal
     \item Strain rate tensor: $\dot{\epsilon}_{ij} = \frac{1}{2} \left( \p_i u_j + \p_j u_i \right)$
     \item Deviatoric stress tensor: $\tau_{ij} = \sigma_{ij} - \frac{1}{3} \sigma_{kk} \delta_{ij}$ (Einstein summation notation used): the stress tensor minus the isotropic part (pressure) (how much the stress state deviated from being isotropic). 
     \item Rheology: relation between force and deformation of material. For mathematical modelling that is a stress and velocity relation. The velocity itself is not relevant since it can change by changing frame. The relative velocity of neighbouring points is relevant, and is captured by the strain rate tensor.
+    \item Prescribed boundary condition: a boundary condition where the value of the variable is set (e.g. via Dirichlet BC). Typically, for grounded ice, the bed is a prescribed boundary.
+    \item Free boundary condition: a boundary condition where the value of the variable is not set, but determined as part of the solution. Typically, for grounded ice, the ice surface is a free boundary. For floating ice, both the lower and upper surfaces, as well as the calving front, are free boundaries.
 \end{itemize}
 \section{Full Stokes Equations}
 
-\cite{karthaus_notes}
+See sec. 1.4.4. of \cite{karthaus_notes}.
+\\
+The Navier-Stokes equations for an incompressible viscous Newtonian fluid (constant viscosity $\eta$). They come from considerations of conservation of mass and momentum within a fixed volume of fluid material (see sec. 1.3 and 1.4.2 of \cite{karthaus_notes}, respectively), and are given by:
+\begin{subequations}
+\begin{align}
+    \nabla \, . \mathbf{u} &= 0 \,, 
+    \hspace{4cm} \text{(mass equation)}
+    \label{NS:mass_eq}
+    \\
+    \rho \frac{D \mathbf{u}}{D t} &= 
+    \rho \mathbf{g} - \nabla p + \eta \nabla^2 \mathbf{u}
+    \,,
+    \qquad \text{(momentum equation)}
+    \label{NS:mom_eq}
+\end{align}
+\end{subequations}
+where $\rho$ is the density, $\mathbf{u}$ the fluid velocity, $p : - \sigma_{ii}/3$ the pressure, $\eta$ the viscosity, and $\mathbf{g}$ the gravitational acceleration vector. In the momentum equation it was used that for a \textbf{Newtonian fluid} the stress tensor is given by 
+\begin{align}    
+    \sigma_{ij} = - p \delta_{ij} + \eta \left( \p_i u_j + \p_j u_i \right) \,.
+\end{align}
+This was a simplifying assumption, in general there is a version of NS that does not use this, but more generically can have the full stress tensor. In the form above, the NS system is a set of 4 equations for 4 unkowns ($p, \mathbf{u}$). The non-linear term $(\mathbf{u} . \nabla) \mathbf{u}$ makes the equations hard to solve.
+\\[10pt]
+See sec. 8.2 of \cite{karthaus_notes}.
+\\
+Ice has a low Reynolds number and the inertial, as well as the acceleration terms ($\p_t u$) are ignored (TODO: find the explicit form of the Navier-Stokes eqs and the explicit step that leads to Stokes for low Re). This results in the following equatiations for incompressible, slow ice flow
+\begin{subequations}
+\begin{align}
+    \nabla . \mathbf{u} & = 0
+    \,, 
+    \label{Stokes:mass_eq}
+    \\
+    0 & = \rho \mathbf{g} - \nabla p + \nabla . \mathbf{\tau}
+    \,,
+    \label{Stokes:mom_eq}
+\end{align}
+\end{subequations}
+which are called Stokes equations (or Stokes flow). Notice the difference between \eqref{NS:mom_eq} and \eqref{Stokes:mom_eq}: ice is not a Newtonian fluid (viscosity is not constant with temperature), and therefore the full stress is used (split in pressure $p$ and the deviatoric stress $\tau$).
+In ice modelling the Stokes equations are supplemented by a Rheology relation, such that they form a system of equations for 4 unknowns ($p, \mathbf{u}$). A common rheology relation is Glen's law:
+\begin{align}
+    \dot{\epsilon}_{ij} = A \tau^{n-1} \tau_{ij} \,,
+    \qquad
+    \tau = \sqrt{\frac{1}{2} \tau_{ij} \tau_{ij}} \,,
+\end{align}
+where $\tau$ is the second invariant of the deviatoric stress tensor, $A(T)$ is a temperature dependent rate factor, and $n$ is a constant (usually taken as 3 for ice). Glen's law is non-linear. For a Newtonian fluid (a good approximation for water or air) a linear relation holds
+\begin{align}
+    \tau_{ij} = 2 \eta \, \dot{\epsilon}_{ij} \,,
+\end{align}
+where $\eta$ is the constant viscosity. In addition to the rheology relation, one also needs to know the behaviour of the ice temperature $T$, as it appears in the rate factor $A(T)$. The behaviour of $T$ van be found via temperature and energy considerations that result in the equations
+\begin{align}
+    \rho c_p \left( \frac{\p T}{\p t} + \mathbf{u} . \nabla T \right)
+    & = 
+    \nabla . \left( k \nabla T \right) + \tau_{ij} \dot{\epsilon}_{ij} \,,
+\end{align}
+where $c_p$ is the specific heat capacitiy, and $k$ the thermal conductivity. For the full general solution, this has to be solved coupled to the 
+\\
+See sec 1.7 of \cite{karthaus_notes} for the full set of equations for a grounded ice sheet flow (including boundary conditions).
 
 \section{Shallow Ice Approximation (SIA)}
+
+SIA is a zeroth order approximation (typically). The expansion parameter is the aspect ratio between depth and horizontal length scale, which is small for ice sheets. Physically, the assumption is that variation in the horizontal coordinate (x,y) is much smaller in the vertical (z). To zeroth order the components of the strain rate tensor are
+\begin{align}
+     \dot{\epsilon} = 
+     \begin{pmatrix}
+        0 & 0 & \p_z u_x / 2 \\
+        0 & 0 & \p_z u_y / 2 \\
+        \p_z u_x / 2 & \p_z u_y / 2 & 0
+     \end{pmatrix}
+     \,,
+\end{align}
+or in terms of the deviatoric stress, the only non-zero components are $\tau_{xz}, \tau_{yz}$.
+The momentum equations reduce to
+\begin{align}
+    \p_x p = \p_z \tau_{xz} \,,
+    \quad
+    \p_y p  = \p_z \tau_{yz} \,,
+    \quad
+    \p_z p & = - \rho g \,,
+\end{align}
+And the surface boundary conditions are
+\begin{align}
+    p = \tau_{xz} = \tau_{yz} = 0.
+\end{align}
+The last of the momentum equations is just an ODE, which can be integrated on its own to yield the pressure profile
+\begin{align}
+    p = \rho g (s - z) \,,
+\end{align}
+where $s(x,y)$ is the surface (free boundary). Then, this solution can be plugged in the first two momentum equations, which after intergration in z (from z to surface) since the explicit z-profile is known, yield
+\begin{align}
+    \tau_{xz}  = - \rho g (s - z) \p_x s \,,
+    \quad
+    \tau_{yz}  = - \rho g (s - z) \p_y s \,.
+\end{align}
+The ice thickness is defined as $h(x,y) := s(x,y) - b(x,y)$, where $b(x,y)$ is the bed (prescribed boundary), and the depth-integrated ice flux as
+\begin{align}
+    q_x := \int_b^s u_x \, dz
+    \,,
+    \quad
+    q_y := \int_b^s u_y \, dz
+    \,.
+\end{align}
+After z-integration (from b to s) of the mass equation we get
+\begin{align}
+    \int_b^s \left( \p_x u_x + \p_y u_y \right) dz + u_z |_b^s = 0 \,,
+\end{align}
+which combined with the boundary conditions
+\begin{align}
+    u_x \p_x b + u_y \p_y b = u_z \quad 
+    & \text{at} \quad z=b
+    \,,
+    \\
+    \p_t s + u_x \p_x s + u_y \p_y s = u_z + a \quad 
+    & \text{at} \quad z=s
+\end{align}
+where $a(x,y)$ is the surface mass balance (positive for accumulation, negative for ablation), results in the SIA ice thickness equation
+\begin{align}
+    \p_t h + \p_x q_x + \p_y q_y = a \,.
+\end{align}
+TODO: missing some part of the derivation. I did the second minus the first BC and built h, but get some extra $\sim \p_x h$, $\sim \p_y h$ terms. Are $\p_x h$ and $\p_y h$ neglected?
+\\[10pt]
+Given a flow law (e.g. Glen's) and a sliding law, the fluxes can be expressed in terms of the ice thickness and surface elevation (and bed elevation for sliding). The result can be replaced in the ice thickness equation to get a closed equation for $h(x,y,t)$, which has a diffusion-like form.
+For a simple 1-D example (keep only (t,x)), we assume \textbf{no sliding} and a \textbf{flat bed}, and arrive at
+\begin{align}
+    \p_t h = \p_x \left(D \, \p_x h \right) + a \,,
+    \quad
+    \text{with} 
+    \quad
+    D = \frac{2 A (\rho g)^n}{n+2} h^{n+2} |\p_x h|^{n-1} \,.
+\end{align}
+
 
 \section{Shallow Shelf Approximation (SSA)}
 
