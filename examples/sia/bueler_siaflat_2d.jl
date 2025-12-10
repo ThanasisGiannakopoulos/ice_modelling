@@ -30,14 +30,18 @@ function build_D(Gamma, h, dx, dy)
             Hlt = 0.5*(h[i,j] + h[i-1,j])
             Hup = 0.5*(h[i,j+1] + h[i,j])
             Hdn = 0.5*(h[i,j] + h[i,j-1])
-            # (d_x + d_y)^2 @ right i,j; uses midpoints for d_y
-            a2rt = idx2*(h[i+1,j] - h[i,j])^2 + 0.0625*idy2*(h[i+1,j+1] + h[i,j+1] - h[i+1,j-1] - h[i,j-1])
-            # (d_x + d_y)^2 @ left from i,j; uses midpoints for d_y
-            a2lt = idx2*(h[i,j] - h[i-1,j])^2 + 0.0625*idy2*(h[i-1,j+1] + h[i,j+1] - h[i-1,j-1] - h[i,j-1])
-            # (d_x + d_y)^2 @ up i,j; uses midpoints for d_x
-            a2up = 0.0625*idx2*(h[i+1,j+1] + h[i+1,j] - h[i-1,j+1] - h[i-1,j])^2 + idy2*(h[i,j+1] - h[i,j])
-            # (d_x + d_y)^2 @ down from i,j; uses midpoints for d_x
-            a2dn = 0.0625*idx2*(h[i+1,j] + h[i+1,j-1] - h[i-1,j] - h[i-1,j-1])^2 + idy2*(h[i,j] - h[i,j-1])
+            # (d_x + d_y)^2 @ right i,j; uses midpoints for d_y and centered FD
+            a2rt = idx2*(h[i+1,j]-h[i,j])^2 +
+            0.0625*idy2*(h[i+1,j+1]+h[i,j+1]-h[i+1,j-1]-h[i,j-1])^2
+            # (d_x + d_y)^2 @ left from i,j; uses midpoints for d_y and centered FD
+            a2lt = idx2*(h[i,j]-h[i-1,j])^2 +
+            0.0625*idy2*(h[i-1,j+1]+h[i,j+1]-h[i-1,j-1]-h[i,j-1])^2           
+            # (d_x + d_y)^2 @ up i,j; uses midpoints for d_x and centered FD
+            a2up = idy2*(h[i,j+1]-h[i,j])^2 +
+            0.0625*idx2*(h[i+1,j+1]+h[i+1,j]-h[i-1,j+1]-h[i-1,j])^2
+            # (d_x + d_y)^2 @ down from i,j; uses midpoints for d_x and centered FD
+            a2dn = idy2*(h[i,j]-h[i,j-1])^2 +
+            0.0625*idx2*(h[i+1,j]+h[i+1,j-1]-h[i-1,j]-h[i-1,j-1])^2
             Drt[i,j] = Gamma * Hrt^5 * a2rt
             Dlt[i,j] = Gamma * Hlt^5 * a2lt
             Dup[i,j] = Gamma * Hup^5 * a2up
@@ -60,19 +64,25 @@ function rhs(Gamma, h, dx, dy)
             Hlt = 0.5*(h[i,j] + h[i-1,j])
             Hup = 0.5*(h[i,j+1] + h[i,j])
             Hdn = 0.5*(h[i,j] + h[i,j-1])
-            # (d_x + d_y)^2 @ right i,j; uses midpoints for d_y
-            a2rt = idx2*(h[i+1,j] - h[i,j])^2 + 0.0625*idy2*(h[i+1,j+1] + h[i,j+1] - h[i+1,j-1] - h[i,j-1])
-            # (d_x + d_y)^2 @ left from i,j; uses midpoints for d_y
-            a2lt = idx2*(h[i,j] - h[i-1,j])^2 + 0.0625*idy2*(h[i-1,j+1] + h[i,j+1] - h[i-1,j-1] - h[i,j-1])
-            # (d_x + d_y)^2 @ up i,j; uses midpoints for d_x
-            a2up = 0.0625*idx2*(h[i+1,j+1] + h[i+1,j] - h[i-1,j+1] - h[i-1,j])^2 + idy2*(h[i,j+1] - h[i,j])
-            # (d_x + d_y)^2 @ down from i,j; uses midpoints for d_x
-            a2dn = 0.0625*idx2*(h[i+1,j] + h[i+1,j-1] - h[i-1,j] - h[i-1,j-1])^2 + idy2*(h[i,j] - h[i,j-1])
+            # (d_x + d_y)^2 @ right i,j; uses midpoints for d_y and centered FD
+            a2rt = idx2*(h[i+1,j]-h[i,j])^2 +
+            0.0625*idy2*(h[i+1,j+1]+h[i,j+1]-h[i+1,j-1]-h[i,j-1])^2
+            # (d_x + d_y)^2 @ up i,j; uses midpoints for d_x and centered FD
+            a2up = idy2*(h[i,j+1]-h[i,j])^2 +
+            0.0625*idx2*(h[i+1,j+1]+h[i+1,j]-h[i-1,j+1]-h[i-1,j])^2 
+            # (d_x + d_y)^2 @ left from i,j; uses midpoints for d_y and centered FD
+            a2lt = idx2*(h[i,j]-h[i-1,j])^2 +
+            0.0625*idy2*(h[i-1,j+1]+h[i,j+1]-h[i-1,j-1]-h[i,j-1])^2
+            # (d_x + d_y)^2 @ down from i,j; uses midpoints for d_x and centered FD
+            a2dn = idy2*(h[i,j]-h[i,j-1])^2 +
+            0.0625*idx2*(h[i+1,j]+h[i+1,j-1]-h[i-1,j]-h[i-1,j-1])^2
             Drt = Gamma * Hrt^5 * a2rt
             Dlt = Gamma * Hlt^5 * a2lt
             Dup = Gamma * Hup^5 * a2up
             Ddn = Gamma * Hdn^5 * a2dn
-            rhs[i,j] = idx2*(Drt*(h[i+1,j] - h[i,j]) - Dlt*(h[i,j] - h[i-1,j])) + idy2*(Dup*(h[i,j+1] - h[i,j]) - Ddn*(h[i,j] - h[i,j-1]))
+            rhs[i,j] = 
+            idx2*(Drt*(h[i+1,j]-h[i,j])-Dlt*(h[i,j]-h[i-1,j])) +
+            idy2*(Dup*(h[i,j+1]-h[i,j])-Ddn*(h[i,j]-h[i,j-1]))
         end # for j
     end #for i
 
@@ -208,10 +218,10 @@ function Halfar(t,x,y)
 end
 
 # for the run
-res = 0 # double resol
-Nx = 2^res*32 +1
-Ny = 2^res*32 +1
-L  = 1.7*1000e3
+res = 2 # double resol
+Nx = 2^res*64 +1
+Ny = 2^res*64 +1
+L  = 1.2*1000e3
 #L  = 100e3
 x = range(-L, L, length=Nx)
 y = range(-L, L, length=Ny)
