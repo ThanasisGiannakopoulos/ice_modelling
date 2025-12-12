@@ -1,0 +1,93 @@
+﻿\begin{tikzpicture}[>=latex]
+
+% ---------------------------
+% Row j = 0
+% ---------------------------
+
+% (i=0, j=0)
+\node[draw, minimum width=1cm, minimum height=1cm] (n00) at (0,0) {\tiny{i-1,j-1}};
+
+% (i=1, j=0)
+\node[draw, minimum width=1cm, minimum height=1cm] (n10) at (4,0) {\tiny{i,j-1}};
+
+% (i=2, j=0)
+\node[draw, minimum width=1cm, minimum height=1cm] (n20) at (8,0) {\tiny{i+1,j}};
+
+% ---------------------------
+% Row j = 1
+% ---------------------------
+
+% (i=0, j=1)
+\node[draw, minimum width=1cm, minimum height=1cm] (n01) at (0,4) {\tiny{i-1,j}};
+
+% (i=1, j=1)
+\node[draw, minimum width=1cm, minimum height=1cm] (n11) at (4,4) {\tiny{i,j}};
+
+% (i=2, j=1)
+\node[draw, minimum width=1cm, minimum height=1cm] (n21) at (8,4) {\tiny{i+1,j}};
+
+% ---------------------------
+% Row j = 2
+% ---------------------------
+
+% (i=0, j=2)
+\node[draw, minimum width=1cm, minimum height=1cm] (n02) at (0,8) {\tiny{i-1,j+1}};
+
+% (i=1, j=2)
+\node[draw, minimum width=1cm, minimum height=1cm] (n12) at (4,8) {\tiny{i,j+1}};
+
+% (i=2, j=2)
+\node[draw, minimum width=1cm, minimum height=1cm] (n22) at (8,8) {\tiny{i+1,j+1}};
+
+% cell
+\node[draw=gray, dashed, minimum width=3.75cm, minimum height=3.75cm] (n22) at (4,4) {};
+
+%\node (n22) at (2,8) {$X$};
+%\node (n22) at (6,8) {$X$};
+\node (n22) at (0,6) {$h_{i-1,j+1/2}$};
+\node (n22) at (4,6) {$h_{i,j+1/2}$};
+\node (n22) at (8,6) {$h_{i+1,j+1/2}$};
+\node (n22) at (2,4) {$h_{i-1/2,j}$};
+\node (n22) at (6,4) {$h_{i+1/2,j}$};
+
+% ---------------------------
+% Coordinate arrows (bottom left, outside grid)
+% ---------------------------
+% origin for axes slightly below bottom-left corner
+\coordinate (origin) at (-2.5,1);
+% x arrow
+\draw[->, thick] (origin) -- ++(1,0) node[right] {$x_i$};
+% y arrow
+\draw[->, thick] (origin) -- ++(0,1) node[above] {$y_j$};
+
+
+% ---------------------------
+% Compass arrows (bottom-left outside grid)
+% ---------------------------
+\coordinate (compass) at (-2,7); % position of the compass center
+
+% East
+\draw[->, thick] (compass) -- ++(0.5,0) node[right] {e};
+
+% West
+\draw[-, thick] (compass) -- ++(-0.5,0) node[left] {w};
+
+% North
+\draw[->, thick] (compass) -- ++(0,0.5) node[above] {n};
+
+% South
+\draw[-, thick] (compass) -- ++(0,-0.5) node[below] {s};
+
+% Horizontal dimension line for Δx between n00 and n10
+\draw[-, thick] 
+    (n00) ++(0.5,0) -- 
+    (n10) ++(0,0) 
+    node[midway, below] {$\Delta x$};
+
+% Horizontal dimension line for Δx between n00 and n10
+\draw[-, thick] 
+    (n00) ++(0.0,0.5) -- 
+    (n01) ++(0,0) 
+    node[midway, left] {$\Delta y$};
+
+\end{tikzpicture}

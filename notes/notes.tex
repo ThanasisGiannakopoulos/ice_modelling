@@ -112,6 +112,8 @@ See sec 1.7 of \cite{karthaus_notes} for the full set of equations for a grounde
 
 \section{Shallow Ice Approximation (SIA)}
 
+\subsection{Theory}
+
 SIA is a zeroth order approximation (typically). The expansion parameter is the aspect ratio between depth and horizontal length scale, which is small for ice sheets. Physically, the assumption is that variation in the horizontal coordinate (x,y) is much smaller in the vertical (z). To zeroth order the components of the strain rate tensor are
 \begin{align}
      \dot{\epsilon} = 
@@ -173,15 +175,121 @@ where $a(x,y)$ is the surface mass balance (positive for accumulation, negative 
 TODO: missing some part of the derivation. I did the second minus the first BC and built h, but get some extra $\sim \p_x h$, $\sim \p_y h$ terms. Are $\p_x h$ and $\p_y h$ neglected?
 \\[10pt]
 Given a flow law (e.g. Glen's) and a sliding law, the fluxes can be expressed in terms of the ice thickness and surface elevation (and bed elevation for sliding). The result can be replaced in the ice thickness equation to get a closed equation for $h(x,y,t)$, which has a diffusion-like form.
-For a simple 1-D example (keep only (t,x)), we assume \textbf{no sliding} and a \textbf{flat bed}, and arrive at
+%For a simple 1-D example (keep only (t,x)), 
+We assume \textbf{no sliding}, a \textbf{flat bed}, a mass balance $a(x,y) = 0$, to arrive at
 \begin{align}
-    \p_t h = \p_x \left(D \, \p_x h \right) + a \,,
-    \quad
+    \p_t h 
+    & = \p_x \left(D \, \p_x h \right) + \p_y \left(D \, \p_y h \right)
+    \,,
+    \\
+    %\quad
     \text{with} 
     \quad
-    D = \frac{2 A (\rho g)^n}{n+2} h^{n+2} |\p_x h|^{n-1} \,.
+    D 
+    &= \frac{2 A (\rho g)^n}{n+2} h^{n+2} 
+    \left( |\p_x h|^{n-1} + |\p_y h|^{n-1} \right)
+    \,.
+    \nonumber
 \end{align}
 
+\subsection{Numerical implementation}
+
+The time integration is performed with an explicit scheme with adaptive step (see sec. 8.3.1 of \cite{karthaus_notes}). The stability condition is 
+\begin{align}
+    \Delta t \leq \frac{\min(\Delta x, \Delta y)^2}{2 \max(D)}
+    \,,
+    \label{eq:2d_stability_condition}
+\end{align}
+and is based on a centred FD approximation in space and a forward in time. To understand it consider the 1d case
+\begin{align*}
+    \p_t T &= D \p_x^2 
+    \\
+    \rightarrow
+    \frac{T_j^{n+1} - T_j^n}{\Delta t} 
+    & = D \left( \frac{T_{j+1}^n - 2 T_{j^n} + T_{j-1}^n}{\Delta x^2} \right)
+    \\
+    \rightarrow
+    T_j^{n+1} & = \mu T_{j+1}^n + \left(1 - 2 \mu \right) T_j^n + \mu T_{j-1}^n
+    \,, \quad \text{with} \quad \mu:= D \Delta t / \Delta x^2
+    \,.
+\end{align*}
+The latter provides stability if the rhs acts as an average, which is true when the term $(1-2\mu)$ is positive. This leads to the condition
+\begin{align*}
+    1-2\mu \geq 0 \rightarrow \Delta t \leq \frac{\Delta x^2}{2 D}
+    \,,
+\end{align*}
+which generalized to \eqref{eq:2d_stability_condition} in 2d (where we take $\max{D}$ since it is not a constant as in the previous derivation). In practise we choose
+\begin{align*}
+    \Delta t = \frac{\min(\Delta x, \Delta y)^2}{4 \max(D)}
+    \,,
+\end{align*}
+to safely saturate the bound.
+
+For the explicit scheme to be conditionally stable (under condition \eqref{eq:2d_stability_condition}) the diffusion-like term $D(x,y)$ has to be evaluated on staggered grid points. This results in the following spatial discretization
+\begin{align}
+    \nabla . \left(D \nabla H \right) 
+    &= 
+    \frac{D_{i+1/2,j} (H_{i+1,j} - H_{i,j}) - D_{i-1/2,j}(H_{i,j} - H_{i-1,j})}{\Delta x^2}
+    \nonumber
+    \\
+    & + 
+    \frac{D_{i,j+1/2} (H_{i,j+1} - H_{i,j}) - D_{i,j-1/2}(H_{i,j} - H_{i,j-1})}{\Delta y^2}
+    \,, 
+    \label{eq:bueler_stencil}
+\end{align}
+which can be achieved if the inside derivative is forward (backward) and the outside backward (forward). To evaluate $D$ on staggered grid points, we use midpoint for the term without derivative, and a combination of midpoint and forward, backward, and centred FD for the term with derivative (see \cite{Karthaus_mfiles})
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.475\textwidth]{figs/grids.pdf}
+    \caption{Staggered grid points. The dashed square indicates the cell (control volume $\Omega$) for the finite volume method used.}
+    \label{fig:grid}
+\end{figure}
+
+To arrive at stencil \eqref{eq:bueler_stencil} we start from the strong form
+\begin{align*}
+    \p_t h = \nabla . \left( D \nabla h \right) 
+\end{align*}
+and integrate over a control volume $\Omega$ (fixed in time) to obtain
+\begin{align*}
+    \p_t \int_\Omega h \, d \Omega = \int_\Omega \, \nabla . \left( D \nabla h \right) d \Omega
+    =
+    \int_{\p \Omega} (D \nabla h) . \mathbf{n} \, dA
+    \,,
+\end{align*}
+where we have used the divergence theorem and $\mathbf{n}$ is the unit normal vector that points outward of the control volume. Then we split the boundary of the control volume $\p \Omega$ in its components, to obtain
+\begin{align*}
+    \p_t \int_\Omega h d\Omega = 
+    \int_{\p \Omega_n} D \frac{\p h}{\p y} dA_{n}
+    - \int_{\p \Omega_s} D \frac{\p h}{\p y} dA_{s}
+    + \int_{\p \Omega_e} D \frac{\p h}{\p x} dA_{e}
+    - \int_{\p \Omega_w} D \frac{\p h}{\p x} dA_{w}
+    \,,
+\end{align*}
+with $n,s,e,w,$ indicating north, south, etc wrt to the $i,j$ grid point, which we call $P$.
+
+Let us take a closer look at the north part of $\p \Omega$ to understand the discretization. The length of that face is $\Delta x$, so the integral can be writen as
+\begin{align*}
+    \int_{-\Delta x/2}^{\Delta x/2} D \frac{\p h}{\p y} dx
+    \,.
+\end{align*}
+To approximate this integral we are using midpoint approximation, which assumes that the integrand is constanct across the face and it evaluates it at the face centre, which we call here N and has indices $i,j+1/2$. We end up with the following
+\begin{align*}
+    \int_{-\Delta x/2}^{\Delta x/2} D \frac{\p h}{\p y} dx
+    \simeq
+    D|_N \, \left[\frac{\p h}{\p y}\right]_{N} \, \Delta x
+    \,.
+\end{align*}
+Based on this, we see that $D$ has to be evaluated on $N$ which is a staggered grid point. We also need to evaluate the derivative $\p h/\p y$ on $N$, which we do by using a centred (wrt $i,j+1/2$) stencil:
+\begin{align*}
+    \left[\frac{\p h}{\p y}\right]_{N} \simeq \frac{h_{i,j+1} + 0 \cdot h_{i,j+1/2} - h_{i,j}}{2 \cdot \Delta y/2}
+    \,,
+\end{align*}
+
+HERE: the scheme is probably 2nd order. Need to finish the derivation and do convergence tests with smooth ID (cannot see good convergence order with Halfr ID).
+
+
+Notice that the backward/forward stencils are 1st order accurate (error of $O(\Delta x)$) while the centred stencil is 2nd order accurate (error of $O(\Delta x^2)$). This truncation error mismatch does not seem to introduce any instability. The scheme has no artificial dissipation (e.g. Kreiss-Oliger).
 
 \section{Shallow Shelf Approximation (SSA)}
 
