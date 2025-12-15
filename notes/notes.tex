@@ -229,11 +229,11 @@ For the explicit scheme to be conditionally stable (under condition \eqref{eq:2d
 \begin{align}
     \nabla . \left(D \nabla H \right) 
     &= 
-    \frac{D_{i+1/2,j} (H_{i+1,j} - H_{i,j}) - D_{i-1/2,j}(H_{i,j} - H_{i-1,j})}{\Delta x^2}
+    \frac{D_{i+1/2,j} (h_{i+1,j}-h_{i,j}) - D_{i-1/2,j}(h_{i,j}-h_{i-1,j})}{\Delta x^2}
     \nonumber
     \\
     & + 
-    \frac{D_{i,j+1/2} (H_{i,j+1} - H_{i,j}) - D_{i,j-1/2}(H_{i,j} - H_{i,j-1})}{\Delta y^2}
+    \frac{D_{i,j+1/2} (h_{i,j+1}-h_{i,j}) - D_{i,j-1/2}(h_{i,j}-h_{i,j-1})}{\Delta y^2}
     \,, 
     \label{eq:bueler_stencil}
 \end{align}
@@ -258,14 +258,15 @@ and integrate over a control volume $\Omega$ (fixed in time) to obtain
     \,,
 \end{align*}
 where we have used the divergence theorem and $\mathbf{n}$ is the unit normal vector that points outward of the control volume. Then we split the boundary of the control volume $\p \Omega$ in its components, to obtain
-\begin{align*}
+\begin{align}
     \p_t \int_\Omega h d\Omega = 
     \int_{\p \Omega_n} D \frac{\p h}{\p y} dA_{n}
     - \int_{\p \Omega_s} D \frac{\p h}{\p y} dA_{s}
     + \int_{\p \Omega_e} D \frac{\p h}{\p x} dA_{e}
     - \int_{\p \Omega_w} D \frac{\p h}{\p x} dA_{w}
     \,,
-\end{align*}
+    \label{eq:sia_vol_integrated}
+\end{align}
 with $n,s,e,w,$ indicating north, south, etc wrt to the $i,j$ grid point, which we call $P$.
 
 Let us take a closer look at the north part of $\p \Omega$ to understand the discretization. The length of that face is $\Delta x$, so the integral can be writen as
@@ -273,7 +274,7 @@ Let us take a closer look at the north part of $\p \Omega$ to understand the dis
     \int_{-\Delta x/2}^{\Delta x/2} D \frac{\p h}{\p y} dx
     \,.
 \end{align*}
-To approximate this integral we are using midpoint approximation, which assumes that the integrand is constanct across the face and it evaluates it at the face centre, which we call here N and has indices $i,j+1/2$. We end up with the following
+To approximate this integral we are using midpoint approximation, which assumes that the integrand is constant across the face and it evaluates it at the face centre, which we call here N and has indices $i,j+1/2$. We end up with the following
 \begin{align*}
     \int_{-\Delta x/2}^{\Delta x/2} D \frac{\p h}{\p y} dx
     \simeq
@@ -285,11 +286,80 @@ Based on this, we see that $D$ has to be evaluated on $N$ which is a staggered g
     \left[\frac{\p h}{\p y}\right]_{N} \simeq \frac{h_{i,j+1} + 0 \cdot h_{i,j+1/2} - h_{i,j}}{2 \cdot \Delta y/2}
     \,,
 \end{align*}
+which combined with the previous yields
+\begin{align}
+    \int_{\p \Omega_n} D \frac{\p h}{\p y} \, dA_n 
+    \simeq D_{i,j+1/2} \frac{h_{i,j+1}-h_{i,j}}{\Delta y} \Delta x
+    \,.
+    \label{eq:int_north}
+\end{align}
+A similar process yields for following for the south (S), east (e), and west (W) points (wrt P):
+\begin{align}
+    \int_{\p \Omega_s} D \frac{\p h}{\p y} \, dA_s 
+    & 
+    \simeq D_{i,j-1/2} \frac{h_{i,j}-h_{i,j-1}}{\Delta y} \Delta x
+    \,,
+    \label{eq:int_south}
+    \\
+    \int_{\p \Omega_e} D \frac{\p h}{\p x} \, dA_e 
+    & 
+    \simeq D_{i+1/2,j} \frac{h_{i+1,j}-h_{i,j}}{\Delta x} \Delta y
+    \,,
+    \label{eq:int_east}
+    \\
+    \int_{\p \Omega_w} D \frac{\p h}{\p x} \, dA_w 
+    & 
+    \simeq D_{i-1/2,j} \frac{h_{i,j}-h_{i-1,j}}{\Delta x} \Delta y
+    \,.
+    \label{eq:int_west}
+\end{align}
+Replacing \eqref{eq:int_north}, \eqref{eq:int_south}, \eqref{eq:int_east}, and \eqref{eq:int_west} in \eqref{eq:sia_vol_integrated}, and deviding by the cell volume $\Delta x \Delta y$, we obtain
+\begin{align}
+    \p_t \bar{h}
+    &=
+    \frac{D_{i,j+1/2}(h_{i.j+1}-h_{i,j}) - D_{i,j-1/2}(h_{i,j}-h_{i,j-1})}{\Delta y^2}
+    \nonumber
+    \\
+    &+
+    \frac{D_{i+1/2,j}(h_{i+1,j}-h_{i,j}) - D_{i-1/2,j}(h_{i,j}-h_{i-1,j})}{\Delta x^2}
+    \,,
+\end{align}
+where $\bar{h} : = \int_{\Omega} h d \Omega / (\Delta x \Delta y)$ is the mean value of $h$ within the control volume $\Omega$. The rhs is the stencil \eqref{eq:bueler_stencil} and in the derivation the 2nd order accurate centred FD operators have been used, for $\Delta x/2$ and $\Delta y/2$.
 
-HERE: the scheme is probably 2nd order. Need to finish the derivation and do convergence tests with smooth ID (cannot see good convergence order with Halfr ID).
-
-
-Notice that the backward/forward stencils are 1st order accurate (error of $O(\Delta x)$) while the centred stencil is 2nd order accurate (error of $O(\Delta x^2)$). This truncation error mismatch does not seem to introduce any instability. The scheme has no artificial dissipation (e.g. Kreiss-Oliger).
+The quantity $D$ that needs to be evaluated on staggered points, is given by
+\begin{align*}
+    D = \Gamma h^5 |(\p_x h)^2 + (\p_y h)^2|
+    \,, \quad
+    \text{with}
+    \quad
+    \Gamma := \frac{2 A (\rho g)^3}{5}
+    \,.
+\end{align*}
+On a staggered point with $i + 1/2,j$ the term $\p_x$ is approximated by a centred FD using the points $i,j$ and $i + 1,j$ (with spacing $\Delta x/2$), while the $\p_y$ term by a centred FD using the staggered points $i + 1/2, j + 1$ and $i + 1/2, j + 1$ (with spacing $2 \Delta y$):
+\begin{align*}
+    \p_x h|_{i+1/2,j}
+    &\simeq
+    \frac{h_{i+1,j}-h_{i,j}}{\Delta x} + O(\Delta x^2)
+    \,,
+    \\
+    \p_y h|_{i+1/2,j}
+    &\simeq
+    \frac{h_{i+1/2,j+1}-h_{i+1/2,j-2}}{2 \Delta y} + O(\Delta y^2)
+    \,,
+\end{align*}
+and similarly for the other staggered points. The approximations we use induce the following truncation errors
+\begin{align*}
+    f'(x) 
+    &\simeq
+    \frac{f_{i+1}-f{i-1}}{2 \Delta x} + \frac{\Delta x ^2}{6} f'''(x) + O(\Delta x^3)
+    \,,
+    \\
+    \bar{f} : = \frac{1}{\Delta x} \int_{x_i}^{x_{i+1}} f(x) dx
+    & \simeq
+    f_{i+1/2} + \frac{\Delta x^2}{24}f''(x) + O(\Delta x^3)
+    \,.
+\end{align*}
+The truncation error for stencil \eqref{eq:bueler_stencil} is second order, but it is multiplied with second and third derivatives of $h$ several times (due to the non-linearity of $D$) and so the converegence rate of a numerical test depends on these as well.
 
 \section{Shallow Shelf Approximation (SSA)}
 

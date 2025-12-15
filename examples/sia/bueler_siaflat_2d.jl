@@ -217,11 +217,23 @@ function Halfar(t,x,y)
     return H
 end
 
+function Gauss(x,y, amp, width)
+    Nx = length(x)
+    Ny = length(y)
+    H = zeros(Nx,Ny)
+    for i in 1:Nx
+        for j in 1:Ny
+            H[i,j] = amp * exp(-(x[i])^2 / (width)^2) *  exp(-(y[j])^2 / (width)^2)
+        end
+    end
+    return H
+end
+
 # for the run
-res = 2 # double resol
+res = 0 # double resol
 Nx = 2^res*64 +1
 Ny = 2^res*64 +1
-L  = 1.2*1000e3
+L  = 1.2*1e6
 #L  = 100e3
 x = range(-L, L, length=Nx)
 y = range(-L, L, length=Ny)
@@ -231,6 +243,9 @@ t0 = 2*100*secpera
 tf = 2*1e4*secpera
 
 h0 = Halfar(t0, x, y)
+
+# smooth id
+#h0 = Gauss(x,y, 4000, 0.5e6)
 
 print_every = 50*2^res
 save_every  = 100*2^res
