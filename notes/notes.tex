@@ -351,21 +351,141 @@ and similarly for the other staggered points. The approximations we use induce t
 \begin{align*}
     f'(x) 
     &\simeq
-    \frac{f_{i+1}-f{i-1}}{2 \Delta x} + \frac{\Delta x ^2}{6} f'''(x) + O(\Delta x^3)
+    \frac{f_{i+1}-f_{i-1}}{2 \Delta x} + \frac{\Delta x ^2}{6} f'''(x) + O(\Delta x^3)
     \,,
     \\
     \bar{f} : = \frac{1}{\Delta x} \int_{x_i}^{x_{i+1}} f(x) dx
     & \simeq
-    f_{i+1/2} + \frac{\Delta x^2}{24}f''(x) + O(\Delta x^3)
+    \frac{f_i + f_{i+1}}{2} + \frac{\Delta x^2}{24}f''(x) + O(\Delta x^3)
     \,.
 \end{align*}
 The truncation error for stencil \eqref{eq:bueler_stencil} is second order, but it is multiplied with second and third derivatives of $h$ several times (due to the non-linearity of $D$) and so the converegence rate of a numerical test depends on these as well.
 
 \section{Shallow Shelf Approximation (SSA)}
 
-\section{Depth integrated models}
+SSA applies well to floating ice shelves (no resistance from water underneath) and away from the grounding zone and calving front, as well as ice streams that are subject to small resistance from their base. The physical assumption is that normal stresses are dominant and shear stresses are neglected (in contrast to SIA).
+
+The original derivation of the 2nd model can be found in \cite{MacAyeal_SSA}. The calculation includes series expansions both to 0th and 1st order (not sure what order the model is). Here we work with the simpler 1d model shown in sec. 8.7.1 of \cite{karthaus_notes}
+\begin{align}
+    \p_x \left( 2 \bar{v} H \p_x u \right) - \tau_b\, u = \rho g H \p_x s
+    \,,
+    \label{eq:SSA_1d}
+\end{align}
+with
+\begin{align*}
+    \bar{u} 
+    &:= B | \p_x u |^{\frac{1}{n}-1} 
+    \,,
+    \quad \text{effective viscosity}\,,
+    \\
+    \tau_b 
+    &:= C |u|^{m-1}
+    \,,
+    \quad \text{basal resistance}\,,
+\end{align*}
+and the negative of the rhs the driving stress due to gravity (movement of ice on its surface slope $\p_x s$ under its own weight, with $s(x)$ the surface). 
+
+\subsection{Floating shelf: analytical solution}
+
+For a floating shelf there is no basal resistance. The flotation criterion is $\rho H < - \rho_w b$, where $\rho$ is the (uniform) ice shelf density, $\rho_w$ the water density, $z=0$ the sea-surface level, $b(x)<0$ the bedrock, and $H(x)$ the total ice thickness. The surface of the shelf is $s(x)$ and due to hydrostatic equilibrium (balance of buoyancy and gravity) it is given by $s = (1-\rho/\rho_w)H$. Considering all this, the SSA model reads
+\begin{align}
+    \p_x \left( 2 \bar{v} H \p_x u \right) = \rho g \left(1 - \frac{\rho}{\rho_w}\right) H \p_x H
+    \,,
+    \label{eq:SSA_1d_shelf}
+\end{align}
+which can be written as a total derivative in both hand-sides and integrated to given
+\begin{align*}
+    \p_x u = \left[ \frac{\rho g}{4 B} \left(1 - \frac{\rho}{\rho_w}\right)\right]^n H^n
+    \,,
+\end{align*}
+where the effective viscosity definition is used and solved for $\p_x u$. The integration constant has been set to zero (force balance at the calving front(?); see below eq 8.36 in \cite{karthaus_notes}). For a steady 1d ice shelf with constant thickness ($\p_t H = 0$) the mass continuity yields $M = \p_x (u H)$ which leads to
+\begin{align*}
+    u H = Q(x) = \int_{x_g}^{x}M dx + Q_I\,,
+\end{align*}
+where $x_g$ is the grounding line, and $Q_I$ the ice flux coming from the ice sheet upstream. The exact solution depends on the ice thickness $H_g$ and velocity $u_g$ at the grounding line; note $Q_I = H_g u_g$. In this case we choose a positive constant surface balance $M_0$, and obtain
+\begin{align*}
+    H(x) = \frac{1}{u(x)}\left[M_0 (x-x_g) + H_g u_g \right]
+    \,,
+\end{align*}
+which leads to the following analytical solution for $u(x)$
+\begin{align*}
+    u(x)^{n+1} = \frac{1}{M_0} \left[ \frac{\rho g}{4 B} \left(1 - \frac{\rho}{\rho_w}\right)\right]^n 
+        \left\{
+        \left[ M_0 (x-x_g) + H_g u_g \right]^{n+1} 
+        - (H_g u_g)^{n+1}
+        \right\}
+        + u_g^{n+1}
+        \,.
+\end{align*}
+In our setup we choose $x_g=0$ for simplicity, and $n=3$ (Glen's law).
+
+\subsection{Floating shelf: numerical implementation}
+
+We assume that the ice thickness $H$ is known. For the 1d problem described by eq. \eqref{eq:SSA_1d_shelf} we need to solve a boundary value problem for a non-linear ODE (it becomes an eliptic PDE in 2d). We use a Picard-type iterative algorithm, in which we assume a solution at step k-1 that provides the values for the coefficients, in order to solve for the unkown (speed $u(x)$ in this case) at step k. Then this solution is used to calculate the coefficients at step k, and repeat the process, namely
+\begin{align}
+    \p_x \left(W^{(k-1)} \p_x u^{(k)} \right) = \beta
+    &\,,
+    \label{eq:ssa_1d_shelf_numerics}
+    \\
+    \text{where} \quad
+    W = 2 H B |\p_x u|^{\frac{1}{n}-1}
+    &\,,
+    \quad
+    \beta = \rho g (1-\frac{\rho}{\rho_w})H \p_x H
+    \nonumber
+\end{align}
+with boundary conditions for $u$ and/or $u_x := \p_x u$ at $x=x_g = 0$ and $x=x_c$:
+\begin{align*}
+    u(x_g) &= u_g 
+    \,\ \\
+    u_x(x_c) &= \gamma = \left[ \frac{\rho g}{4 B} \left(1 - \frac{\rho}{\rho_w}\right) H(x_c)\right]^n
+\end{align*}
+where $\gamma$ is obtained from the calving front condition (which means what?)
+\begin{align*}
+    2 B H |u_x|^{\frac{1}{n}-1} u_x = \frac{1}{2} \rho \left(1 - \frac{\rho}{\rho_w}\right) g H^2
+    \,,
+\end{align*}
+assuming $u_x(x_c) \geq 0$. Eq. \eqref{eq:ssa_1d_shelf_numerics} is discretized using finite volume methods. A similar process with the SIA implementation (integration over a test volume and divergence theorem) yields
+\begin{align}
+    \frac{W_{i+1/2}(u_{i+1}-u_i) - W_{i-1/2}(u_i - u_{i-1})}{\Delta x^2} = \beta_i
+    \label{eq:ssa_1d_shelf_numerics_discretized}
+\end{align}
+where for shortness we denote the rhs by $\beta$ (in case of non-zero basal resistance there is an additional term $-\alpha_i u_i$ on the lhs). The equation is then cast in the matrix form $\mathbf{A \, u = b}$ and its solution is $\mathbf{ u = A^{-1} \,b}$. The elements of $\mathbf{A,b}$ on each row $i$ are given by
+\begin{align*}
+    A_{i,i-1} = W_{i-1/2}
+    \,,
+    \quad
+    A_{i,i} = - W_{i+1/2} - W_{i-1/2}
+    \,,
+    \quad
+    A_{i,i+1} = W_{i+1/2}
+    \,,
+    \quad
+    b_{i} = \Delta x^2 \beta_i 
+\end{align*}
+To apply the boundary conditions we need to change by hand the first and last rows of $\mathbf{A}$ as well as the first and last elements of $\mathbf{b}$. Let us denote as $i=1,N$ the points of the x grid. The boundary conditions are implemented with the following choices
+\begin{align*}
+    &\text{grounding line:} 
+    \quad
+    A_{1,1}=1 
+    \,,
+    A_{1,2 \dots N}=0
+    \,, \quad
+    b_1 = u_g
+    \,,
+    \\
+    &\text{calving front:}
+    \quad
+    A_{N,N-1} = W_{N+1/2} + W_{N-1/2} = - A_{N,N}
+    \,, \quad
+    b_N = - 2 \Delta x \, W_{N+1/2} \, \gamma + \Delta x^2 \beta_N
+    \,,
+\end{align*}
+where for the calving front we used an ghost point (non-populated, only for derivation) at point $i=N+1$ to evaluate the centred derivative of $u$ at $x=x_c$ as $(u_{N+1}-u_{N-1})/(2 \Delta x) = \gamma$, where the value of $u_{N+1}$ was calculated eq. \eqref{eq:ssa_1d_shelf_numerics_discretized} with $i=N$ and solving for $u_{N+1}$. Since $W_{N+1/2}$ is outside the computational domain, we assume $W_{N+1/2} = W_{N-1/2}$ (copy its value).
 
 \section{Fracture}
+
+\section{Depth integrated models}
 
 \bibliographystyle{apalike}
 \bibliography{refs}
