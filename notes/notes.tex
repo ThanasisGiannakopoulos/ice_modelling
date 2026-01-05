@@ -22,6 +22,8 @@
 
 % Short commands
 \newcommand{\p}{\partial}
+\newcommand{\tg}[1]{\textcolor{blue}{TG: #1} }
+\newcommand{\bb}[1]{\boldsymbol{#1}}
 
 % Document
 \title{Ice modelling notes}
@@ -484,6 +486,95 @@ To apply the boundary conditions we need to change by hand the first and last ro
 where for the calving front we used an ghost point (non-populated, only for derivation) at point $i=N+1$ to evaluate the centred derivative of $u$ at $x=x_c$ as $(u_{N+1}-u_{N-1})/(2 \Delta x) = \gamma$, where the value of $u_{N+1}$ was calculated eq. \eqref{eq:ssa_1d_shelf_numerics_discretized} with $i=N$ and solving for $u_{N+1}$. Since $W_{N+1/2}$ is outside the computational domain, we assume $W_{N+1/2} = W_{N-1/2}$ (copy its value).
 
 \section{Fracture}
+
+For the fracture model we use the phase field model of \cite{Miehe2010}
+\begin{align}
+    \textrm{Div}[\boldsymbol{\sigma}(\mathbf{u},d)] + \bar{\boldsymbol{\gamma}} 
+    &= 0
+    \,,
+    \label{eq:miehe_solid_balance_eq}
+    \\
+    \frac{g_c}{l}
+    \left( d - l^2 \Delta d \right) 
+    & = 2(1-d) \mathcal{H}
+    \,
+    \label{eq:miehe_phase_field_eq}
+\end{align}
+where $\bar{\boldsymbol{\gamma}}$ is the loading of the bulk of the material, $d$ the phase field, $l$ the chosen regularization length, $\mathcal{H}$ the history field, and $g_c$ is the Griffith-type critical energy release rate. For the phase field, $d=0$ means the solid is completely intact and $d=1$ completely damaged.
+\\[10pt]
+Below is a list of relevant definitions/notions:
+\begin{itemize}
+\item $\psi(\bb{\epsilon},d) = [g(d) + k] \psi_0^+(\bb{\epsilon}) + \psi_0^-(\bb{\epsilon})$ 
+with $\psi$ the energy storage function that describes the energy stored in the bulk of the solid per unit volume (isotropic assumption for this form), $\psi_0$ is the isotropic reference energy function associated with the undamaged solid, and the positive/negative parts corresponde to tension and comporession related energies.
+
+\item 
+\tg{copied from paper, don't understand it:}
+$k \approx 0 $ is a small positive parameter used to circumvent the full degradation of the energy leaving the artificial elastic rest energy density $k \psi_0(\bb{\epsilon})$ at the fully broken state $d=1$. It is chosen as small as possible such that the algebraic conditioning number of the applied numerical discretization method remains well-posed for partly-broken systems.
+\tg{cannot find any example values used in the paper's numerical tests.}
+
+\item The monotonically decreasing degredation function $g(d)$ describes the degredation of the positive (tensile) part of the stored energy with evolving damage and has the properties
+$g(0)=1, \, g(1)=0, \, g'(1)=0$. The first and second are the limits of the unbroken and fully broken phase. The last ensures that the energetic fracture force converges to a finite value if the damage converges to a fully broken $d=1$ state. \tg{proof somewhere in the paper supposedly}. A degradation function that satisfies these conditions is $g(d) = (1-d)^2$.
+
+\item $\langle x \rangle_{\pm} := (x \pm |x|)/2$
+
+\item Strain tensor decomposition into tensile and compressive modes $\bb{\epsilon} = \bb{\epsilon}_+ + \bb{\epsilon}_-$, with $\bb{\epsilon}_+$ tensile and $\bb{\epsilon}_-$ compressive.
+
+\item Consider the spectral decomposition of $\bb{\epsilon}$ (basically diagonalize it). Then you get the principal strain $\{\epsilon^i\}_{i=1,\cdots,\delta}$ (eigenvalues) and principal strain directions $\{\mathbf{n}^i\}_{i=1,\cdots,\delta}$ (eigenvectors). In this decomposition (diagonal form) all the strains are normal (no shear), along the principal directions (basically a coordinate transformation). $\delta$ here denotes the total number of spatial dimensions considerred.
+
+\item $\bb{\epsilon}_{\pm} := \sum_{i=1}^\delta \langle \epsilon^i \rangle_\pm \, \mathbf{n}^i \otimes \mathbf{n}^i$ 
+
+\item Local history field of maximum positive reference energy $\mathcal{H}(\b{x,t}) := \max_{s \in [0,t]} \psi_0^+(\bb{\epsilon}(\bb{x},s))$, \tg{with $s$ a time instance within the timespan of interest $[0,t]$?}
+
+\item $\psi_0(\bb{\epsilon}) := \lambda \, \text{tr}^2[\bb{\epsilon}]/2 + \mu \, \text{tr}[\bb{\epsilon}^2]$ is the isotropic reference energy function associated with the undamaged elastic solid, with $\lambda, \mu$ positive elastic constants.
+
+\item It can also be decomposed to positive (tensile) and negative (comporessive) parts via 
+\begin{align*}
+    \psi_0(\bb{\epsilon}) = \psi_0(\bb{\epsilon})^+ + \psi_0(\bb{\epsilon})^-
+    \,,
+\end{align*}
+with 
+\begin{align*}
+    \psi_0(\bb{\epsilon})^+ 
+    :=
+    \lambda \, \langle \text{tr}^2[\bb{\epsilon}]\rangle_+/2 
+    + \mu \, \text{tr}[\bb{\epsilon}_+^2]
+    \,, \qquad
+    \psi_0(\bb{\epsilon})^- 
+    :=
+    \lambda \, \langle \text{tr}^2[\bb{\epsilon}]\rangle_-/2 
+    + \mu \, \text{tr}[\bb{\epsilon}_-^2]
+    \,.
+\end{align*}
+
+
+\end{itemize}
+
+\subsection{coupled with 1d SSA}
+
+We replace eq. \eqref{eq:miehe_phase_field_eq} with the 1d SSA eq. \eqref{eq:SSA_1d_shelf} for a free floating shelf:
+\begin{align}
+    \p_x \left\{ 2 [(1-d)^2 + k ] \bar{v} H \p_x u \right\} = \rho g \left(1 - \frac{\rho}{\rho_w}\right) H \p_x H
+    \,,
+    \label{eq:SSA_1d_shelf_fracture}
+\end{align}
+where the term $(1-d)^2 + k$ provides the coupling with the phase field and controls the degredation of the stress due to fracture. The equation for the phase field in 1d is
+\begin{align}
+    \frac{g_c}{l}
+    \left( d - l^2 \p_x^2 d \right) 
+    & = 2(1-d) \mathcal{H}
+    \,,
+    \label{eq:miehe_phase_field_eq_1d}
+    \\
+    \text{with }
+    \mathcal{H}
+    & = \psi_0^+(\bb{\epsilon})
+    = \left(\frac{\lambda}{4}+\mu \right) (\p_x u)^2 + \frac{\lambda}{4} (\p_x u) |\p_x u|
+    \nonumber
+\end{align}
+because I think in this case we only have $\bb{\epsilon} = \epsilon_xx = \p_x u$.
+
+\tg{TODO: boundary conditions at the calving front. We need to apply externat tension $T$. We need to translate this into the $u_x(x_c)$. At $x=0$, we still prescrive $u(x_g)=u_g$.}
+
 
 \section{Depth integrated models}
 
