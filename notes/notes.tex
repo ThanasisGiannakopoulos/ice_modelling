@@ -546,10 +546,170 @@ with
     \,.
 \end{align*}
 
-
 \end{itemize}
 
-\subsection{coupled with 1d SSA}
+\subsection{Coupled with 1d elastic bar}
+
+Setup: uniform, static, elastic rod of length $L$, attached to a wall on the left, and pull on the right. We want to couple this to the phase field. The domain is $x \in [0,L]$. The system of equations solved is
+\begin{align}
+    \frac{d}{dx} \left\{ \left[(1-d(x))^2  + k \right] E \frac{d}{dx} u(x) \right\}
+    &= 0
+    \,,
+    \label{eq:static_elastic_rod_1d}
+    \\
+    \frac{g_c}{l} \left(d(x) - l \frac{d^2}{dx^2} d(x) \right)
+    & = 2 \left( 1 - d(x) \right) \mathcal{H}(x)
+    \,,
+    \label{eq:1d_phase_field}
+    \\
+    \text{with the history field: }
+    \mathcal{H}(x)
+    & = \frac{1}{2} E \left( \frac{d u(x)}{dx} \right)^2
+    \,, \nonumber
+\end{align}
+where $\sigma = g(d) E u_x$, $u_x := du(x)/dx$, $g(d) : = (1-d)^2 + k$ is the degradation function, $E$ Young's modulus, $g_c$ the critical energy for fracture, and $l$ the regularization length.
+
+The unknowns are the displacement field $u(x)$ and the phase field $d(x)$. The left end of the rod is kept fixed, so the relevant boundary condition is Dirichlet, with $u(0)=0$. On the free end of the rod, we apply an extrernally applied stress (force per unit area?) $F$, which results in
+\begin{align*}
+    \left\{ \left[(1-d(x))^2  + k \right] E u_x \right\}_{x=L} = F
+    \rightarrow
+    u_x(L) = \frac{F}{E \left[(1-d(L))^2  + k \right] }
+    \,.
+\end{align*}
+For the phase field we applied the following Neuman boundary considerations: $d_x(0) = d_x(L) = 0$.
+
+\subsubsection{Numerical implementation}
+
+We use finite volume. We discretize the numerical domain $x \in[0,L]$ with $N$ nodes such that $x_0 = 0$ and $x_N = N \cdot \Delta x = L$, with $\Delta x := L/N$ and want to write eq. \eqref{eq:static_elastic_rod_1d} in the form $\mathbf{A} \mathbf{u} = \mathbf{b}$. Take a cell of length $\Delta x$ from $x_{i-1/2}$ to $x_{i+1/2}$, then
+\begin{align*}
+    \overline{\left[ g(d) E u_x \right]} \Delta x := 
+    \int_{x_{i-1/2}}^{x_{i+1/2}} \frac{d}{dx} \left[ g(d) E u_x \right] dx 
+    = N_{i+1/2} - N_{i-1/2} = 0
+    \,,
+\end{align*}
+where $\overline{[.]}$ denoting an average value within the cell, and
+\begin{align*}
+    N_{i+1/2} = g_{i+1/2} E \frac{u_{i+1} - u_i}{\Delta x}
+    \,, \quad
+    g_{i+1/2} = \frac{g(d_{i+1}) + g(d_i)}{2}
+    \,,
+    \\
+    N_{i-1/2} = g_{i-1/2} E \frac{u_{i} - u_{i-1}}{\Delta x}
+    \,, \quad
+    g_{i-1/2} = \frac{g(d_{i}) + g(d_{i-1})}{2}
+    \,.
+\end{align*}
+Then, for a single cell we have
+\begin{align*}
+    \overline{\left[ g(d) E u_x \right]} 
+    = g_{i+1/2} E \frac{u_{i+1} - u_i}{\Delta x^2} - g_{i-1/2} E \frac{u_{i} - u_{i-1}}{\Delta x^2}=0 \,, \quad
+\end{align*}
+which means that for $1<i<N$ the elements of $\mathbf{A}$ are
+\begin{align*}
+A_{i,i-1} = g_{i-1/2}
+\,,
+\quad 
+A_{i,i} = - g_{i+1/2} - g_{i-1/2}
+\,, \quad
+A_{i,i+1} = g_{i+1/2}
+\,,
+\end{align*}
+where we have multiplied with $\Delta x^2/E$. Respectively, the elements of $\mathbf{b}$ are $b_{i}=0$.
+
+To apply the Dirichlet condition at $u(x)=0$ we use $A_{1,1} = 1$ and $b_1 = 0$. For the Neumann condition $g(d(L))E u_x(L) = F$ we need to evaluate the (second order centred) derivative of $u$ at $x=L$, that is $(u_{N+1} - u_N)/(2 \Delta x)$. Since $u_{N+1}$ is not in the domain, we assume there is a ghost point, which we solve for from the relations above, for $i=N$:
+\begin{align*}
+    g_{N+1/2} E \frac{u_{N+1} - u_N}{\Delta x^2} - g_{N-1/2} E \frac{u_{N} - u_{N-1}}{\Delta x^2}=0
+    \\
+    \rightarrow
+    u_{N+1} = \frac{g_{N+1/2} + g_{N-1/2}}{g_{N+1/2}} u_N - \frac{g_{N-1/2}}{g_{N+1/2}} u_{N-1}
+    \,,
+\end{align*}
+where $g_{N+1/2}$ is also outside the domain, so we copy its previous value i.e. $g_{N+1/2} = g_{N-1/2}$. Then for $i=N$ we have
+\begin{align*}
+    A_{N,N} = \frac{g_{N+1/2} + g_{N-1/2}}{g_{N+1/2}}
+    \,, \quad
+    A_{N,N-1} = - \frac{g_{N+1/2} + g_{N-1/2}}{g_{N+1/2}}
+    \,,
+    \quad
+    b_N = \frac{2 F \, \Delta x}{E \, g(d(L))}
+    \,.
+\end{align*}
+
+Similarly for the phase field eq. \eqref{eq:1d_phase_field} we have
+\begin{align}
+    \frac{g_c}{l} \int_{x_{i-1/2}}^{x_{i+1/2}} d \, dx
+    - g_c \int_{x_{i-1/2}}^{x_{i+1/2}} \p_x^2 d \, dx
+    = \int_{x_{i-1/2}}^{x_{i+1/2}} 2(l-d) \mathcal{H} dx
+    \nonumber \\
+    \rightarrow
+    \frac{g_c}{l} \overline{d_i} \Delta x
+    - g_c d_x|_{i+1/2} + g_c d_x|_{i-1/2}
+    = \overline{[2(l-d)\mathcal{H}]}_i \Delta x
+    \nonumber \\
+    \rightarrow
+    \frac{g_c}{l} d_i - g_c \frac{d_{i+1} - 2d_i + d_{i-1}}{\Delta x^2} = 2 (l-d_i) \mathcal{H}_i
+    \nonumber \\
+    \rightarrow
+    - \frac{g_c}{\Delta x^2} d_{i-1}
+    + \left( \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_i\right) d_i
+    - \frac{g_c}{\Delta x^2} d_{i+1}
+    = 2 l \mathcal{H}_i
+    \,,
+    \label{eq:discrete_1d_phase_field}
+\end{align}
+where $\overline{[.]}_i$ is replaced with its value at the centre of the cell. If we write the phase field equation \eqref{eq:1d_phase_field} in the form $\mathbf{M} \, \mathbf{d} = \mathbf{f}$, with $\mathbf{d}$ the vector that collects $d_i$, the elements of the matrix $\mathbf{M}$ and the vector $\mathbf{f}$ for $1<i<N$ are
+\begin{align*}
+    M_{i,i-1} = - \frac{g_c}{l}
+    \,, \quad
+    M_{i,i} = \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_i
+    \,, \quad
+    M_{i,i+1} = - \frac{g_c}{l}
+    \,, \quad
+    f_i = 2 l \mathcal{H}_i
+    \,.
+\end{align*}
+
+For the boundary conditions we want to apply $d_x(0) = 0 = d_x(L)$, that can be approximated using the 2nd order, centred finite difference stencil by
+\begin{align}
+    \frac{d_2 - d_0}{2\Delta x} = 0
+    \,, \quad
+    \frac{d_{N+1} - d_{N-1}}{2\Delta x} = 0
+    \,,
+    \label{eq:discrete_phase_field_1d_BC}
+\end{align}
+where the points $i=0,N+1$ are outside the computational domain. To calculate these derivatives, as earlier, we assume ghost points at $i=0,N+1$, use eq. \eqref{eq:discrete_1d_phase_field} to infer $d_0, d_{N+1}$, and replace them back into \eqref{eq:discrete_phase_field_1d_BC} to obtain
+\begin{align*}
+    \frac{d_2 - d_0}{2 \Delta x} = 0
+    \rightarrow
+    \left( \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_1 \right) d_1 
+    - \frac{2 g_c}{\Delta x^2} d_2 = 2 l \mathcal{H}_1
+    \,,
+    \\
+    \frac{d_{N+1} - d_{N-1}}{2 \Delta x} = 0
+    \rightarrow
+    - \frac{2 g_c}{\Delta x^2} d_{N-1}
+    + \left( \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_N \right) d_N 
+     = 2 l \mathcal{H}_N
+\end{align*}
+
+\begin{align*}
+    M_{1,1} = \left( \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_1 \right) 
+    \,, \quad 
+    M_{1,2} = - \frac{2 g_c}{\Delta x^2} 
+    \,, \\
+    M_{N,N-1} = - \frac{2 g_c}{\Delta x^2}
+    \,, \quad
+    M_{N,N} = \left( \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_N \right)
+    \,.
+\end{align*}
+
+We need to calculate the history field $\mathcal{H}_i = E u_{x,i}^2/2$, for which we use 2nd order finite difference operator for the interio points, upwind for $i=1$ (the result is the same if we use ghost point, replace it with the result from discretized elastic eq. and assum $g_{1/2}=g_{1+1/2}$), and $u_x(L) = F/(g(d(L))E)$.
+
+For the algorithm, we do as \cite{Miehe2010} says: first calculate the history field, then the phase field, and last the displacement field.
+
+\subsection{Coupled with 1d SSA}
+
+\tg{Check again, there are mistakes: $u$ in SSA is ice speed, but in phase-field free energy is dispalcement (I used the same letter for both below). Also, material damage removes energy from the elastic part of a material, not the viscous. SSA is only viscous. Need to address that, see e.g. elastic thin-plate paper \cite{MacAyeal_Sergienko_Banwell_2015}}
 
 We replace eq. \eqref{eq:miehe_phase_field_eq} with the 1d SSA eq. \eqref{eq:SSA_1d_shelf} for a free floating shelf:
 \begin{align}
@@ -571,9 +731,15 @@ where the term $(1-d)^2 + k$ provides the coupling with the phase field and cont
     = \left(\frac{\lambda}{4}+\mu \right) (\p_x u)^2 + \frac{\lambda}{4} (\p_x u) |\p_x u|
     \nonumber
 \end{align}
-because I think in this case we only have $\bb{\epsilon} = \epsilon_xx = \p_x u$.
+because I think in this case we only have $\bb{\epsilon} = \epsilon_{xx} = \p_x u$.
 
-\tg{TODO: boundary conditions at the calving front. We need to apply externat tension $T$. We need to translate this into the $u_x(x_c)$. At $x=0$, we still prescrive $u(x_g)=u_g$.}
+Our system formed by eq. \eqref{eq:SSA_1d_shelf_fracture} for the displacement field and eq. \eqref{eq:miehe_phase_field_eq_1d} for the phase field. Our numerical domain is $x \in [x_g, x_c]$ and we need boundary conditions. For the phase field we use the proposed Neumann boundary condition from \cite{Miehe2010} $\nabla d \cdot \mathbf{n} = 0$ with $\mathbf{n}$ the unit normal to the boundary of of the domain. In our case this reads
+\begin{align}
+    \left[\p_x d(x)\right]_{x_g} = \left[\p_x d(x)\right]_{x_c} = 0
+    \,.
+    \label{eq:1d_phase_field_BC}
+\end{align}
+For the displacement field, we follow similar logic to earlier. At the grounding line we apply the same Dirichlet boundary condition $u(x_g) = u_g$, while at the calving front we apply a Neumann boundary condition on $u_x|_{x_c}$. To obtain the specific value, in sec. \ref{eq:ssa_1d_shelf_numerics}, we integrated the 1d SSA eq \eqref{eq:SSA_1d_shelf} once in $x$ (assuming a zero integration constant), and solved for $u_x$ (for an odd $n$, since we use $n=3$ here, following Glen's law). We, we follow the same steps ut for eq. \eqref{eq:SSA_1d_shelf_fracture} that is coupled to the phase field, and we do not assume a vanishing integration constant. Instead, we use $N_xx$ for this constant, which represents a constant in time, extrernal, depth-integrated
 
 
 \section{Depth integrated models}
