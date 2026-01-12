@@ -557,7 +557,7 @@ Setup: uniform, static, elastic rod of length $L$, attached to a wall on the lef
     \,,
     \label{eq:static_elastic_rod_1d}
     \\
-    \frac{g_c}{l} \left(d(x) - l \frac{d^2}{dx^2} d(x) \right)
+    \frac{g_c}{l} \left(d(x) - l^2 \frac{d^2}{dx^2} d(x) \right)
     & = 2 \left( 1 - d(x) \right) \mathcal{H}(x)
     \,,
     \label{eq:1d_phase_field}
@@ -638,32 +638,32 @@ where $g_{N+1/2}$ is also outside the domain, so we copy its previous value i.e.
 Similarly for the phase field eq. \eqref{eq:1d_phase_field} we have
 \begin{align}
     \frac{g_c}{l} \int_{x_{i-1/2}}^{x_{i+1/2}} d \, dx
-    - g_c \int_{x_{i-1/2}}^{x_{i+1/2}} \p_x^2 d \, dx
+    - l g_c \int_{x_{i-1/2}}^{x_{i+1/2}} \p_x^2 d \, dx
     = \int_{x_{i-1/2}}^{x_{i+1/2}} 2(l-d) \mathcal{H} dx
     \nonumber \\
     \rightarrow
     \frac{g_c}{l} \overline{d_i} \Delta x
-    - g_c d_x|_{i+1/2} + g_c d_x|_{i-1/2}
+    - l g_c d_x|_{i+1/2} + l g_c d_x|_{i-1/2}
     = \overline{[2(l-d)\mathcal{H}]}_i \Delta x
     \nonumber \\
     \rightarrow
-    \frac{g_c}{l} d_i - g_c \frac{d_{i+1} - 2d_i + d_{i-1}}{\Delta x^2} = 2 (l-d_i) \mathcal{H}_i
+    \frac{g_c}{l} d_i - l g_c \frac{d_{i+1} - 2d_i + d_{i-1}}{\Delta x^2} = 2 (l-d_i) \mathcal{H}_i
     \nonumber \\
     \rightarrow
-    - \frac{g_c}{\Delta x^2} d_{i-1}
-    + \left( \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_i\right) d_i
-    - \frac{g_c}{\Delta x^2} d_{i+1}
+    - \frac{l g_c}{\Delta x^2} d_{i-1}
+    + \left( \frac{g_c}{l} + \frac{2 l g_c}{\Delta x^2} + 2 \mathcal{H}_i\right) d_i
+    - \frac{l g_c}{\Delta x^2} d_{i+1}
     = 2 l \mathcal{H}_i
     \,,
     \label{eq:discrete_1d_phase_field}
 \end{align}
 where $\overline{[.]}_i$ is replaced with its value at the centre of the cell. If we write the phase field equation \eqref{eq:1d_phase_field} in the form $\mathbf{M} \, \mathbf{d} = \mathbf{f}$, with $\mathbf{d}$ the vector that collects $d_i$, the elements of the matrix $\mathbf{M}$ and the vector $\mathbf{f}$ for $1<i<N$ are
 \begin{align*}
-    M_{i,i-1} = - \frac{g_c}{l}
+    M_{i,i-1} = - \frac{l g_c}{\Delta x^2}
     \,, \quad
-    M_{i,i} = \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_i
+    M_{i,i} = \frac{g_c}{l} + \frac{2 l g_c}{\Delta x^2} + 2 \mathcal{H}_i
     \,, \quad
-    M_{i,i+1} = - \frac{g_c}{l}
+    M_{i,i+1} = - \frac{l g_c}{\Delta x^2}
     \,, \quad
     f_i = 2 l \mathcal{H}_i
     \,.
@@ -681,25 +681,25 @@ where the points $i=0,N+1$ are outside the computational domain. To calculate th
 \begin{align*}
     \frac{d_2 - d_0}{2 \Delta x} = 0
     \rightarrow
-    \left( \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_1 \right) d_1 
-    - \frac{2 g_c}{\Delta x^2} d_2 = 2 l \mathcal{H}_1
+    \left( \frac{g_c}{l} + \frac{2 l g_c}{\Delta x^2} + 2 \mathcal{H}_1 \right) d_1 
+    - \frac{2 l g_c}{\Delta x^2} d_2 = 2 l \mathcal{H}_1
     \,,
     \\
     \frac{d_{N+1} - d_{N-1}}{2 \Delta x} = 0
     \rightarrow
-    - \frac{2 g_c}{\Delta x^2} d_{N-1}
-    + \left( \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_N \right) d_N 
+    - \frac{2 l g_c}{\Delta x^2} d_{N-1}
+    + \left( \frac{g_c}{l} + \frac{2 l g_c}{\Delta x^2} + 2 \mathcal{H}_N \right) d_N 
      = 2 l \mathcal{H}_N
 \end{align*}
 
 \begin{align*}
-    M_{1,1} = \left( \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_1 \right) 
+    M_{1,1} = \left( \frac{g_c}{l} + \frac{2 l g_c}{\Delta x^2} + 2 \mathcal{H}_1 \right) 
     \,, \quad 
-    M_{1,2} = - \frac{2 g_c}{\Delta x^2} 
+    M_{1,2} = - \frac{2 l g_c}{\Delta x^2} 
     \,, \\
-    M_{N,N-1} = - \frac{2 g_c}{\Delta x^2}
+    M_{N,N-1} = - \frac{2 l g_c}{\Delta x^2}
     \,, \quad
-    M_{N,N} = \left( \frac{g_c}{l} + \frac{2 g_c}{\Delta x^2} + 2 \mathcal{H}_N \right)
+    M_{N,N} = \left( \frac{g_c}{l} + \frac{2 l g_c}{\Delta x^2} + 2 \mathcal{H}_N \right)
     \,.
 \end{align*}
 
