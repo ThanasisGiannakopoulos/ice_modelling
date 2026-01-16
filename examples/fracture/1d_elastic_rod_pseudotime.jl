@@ -4,12 +4,12 @@ using Serialization
 Base.@kwdef struct Params
     E::Float64 = 1.0        # Young's modulus
     gc::Float64 = 1e-2      # critical energy for fracture
-    l::Float64 = 0.02/4      # regularization length (smaller to localize)
+    l::Float64 = 0.005      # regularization length (smaller to localize)
     k::Float64 = 1e-8       # small numerical factor
     L::Float64 = 1.0        # rod length
-    N::Int = 400#512 + 1        # number of nodes (dx < l/3)
+    N::Int = 2*512 + 1        # number of nodes (dx < l/3)
     dx::Float64 = L/(N-1)   # spatial step
-    T::Int = 300# + 1        # number of steps for pseudotime
+    T::Int = 300 + 1        # number of steps for pseudotime
     dt::Float64 = 1/(T-1)     # step in pseudotime; when it is 1, we apply the full force on the right end
     tol::Float64 = 1e-6     # convergence tolerance
     max_iter::Int = 20      # max staggered iterations
@@ -46,8 +46,10 @@ function DuDx(u::Vector, d::Vector, F::Float64, E::Vector, p::Params)
     end
 
     # Neumann right
-    u_x[N] = F / ((E[N])*((1-d[N])^2 + p.k))
+    #u_x[N] = F / ((E[N])*((1-d[N])^2 + p.k))
 
+    # backward FD right
+    u_x[N] = idx*(u[N-1]-u[N])
     return u_x
 end
 
@@ -196,7 +198,7 @@ E = ones(p.N) .* p.E
 #E[defect_i-2:defect_i+2] .= p.E*0.5  # soften 5 points at center
 
 # desired force at the right end
-F = 2.0
+F = 1.0
 u_sol, d_sol, H_sol = pseudotime_solver(x, u0, d0, H0, F, E, p)
 
 # save all iterations
