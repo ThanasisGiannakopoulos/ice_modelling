@@ -639,21 +639,21 @@ Similarly for the phase field eq. \eqref{eq:1d_phase_field} we have
 \begin{align}
     \frac{g_c}{l} \int_{x_{i-1/2}}^{x_{i+1/2}} d \, dx
     - l g_c \int_{x_{i-1/2}}^{x_{i+1/2}} \p_x^2 d \, dx
-    = \int_{x_{i-1/2}}^{x_{i+1/2}} 2(l-d) \mathcal{H} dx
+    = \int_{x_{i-1/2}}^{x_{i+1/2}} 2(1-d) \mathcal{H} dx
     \nonumber \\
     \rightarrow
     \frac{g_c}{l} \overline{d_i} \Delta x
     - l g_c d_x|_{i+1/2} + l g_c d_x|_{i-1/2}
-    = \overline{[2(l-d)\mathcal{H}]}_i \Delta x
+    = \overline{[2(1-d)\mathcal{H}]}_i \Delta x
     \nonumber \\
     \rightarrow
-    \frac{g_c}{l} d_i - l g_c \frac{d_{i+1} - 2d_i + d_{i-1}}{\Delta x^2} = 2 (l-d_i) \mathcal{H}_i
+    \frac{g_c}{l} d_i - l g_c \frac{d_{i+1} - 2d_i + d_{i-1}}{\Delta x^2} = 2 (1-d_i) \mathcal{H}_i
     \nonumber \\
     \rightarrow
     - \frac{l g_c}{\Delta x^2} d_{i-1}
     + \left( \frac{g_c}{l} + \frac{2 l g_c}{\Delta x^2} + 2 \mathcal{H}_i\right) d_i
     - \frac{l g_c}{\Delta x^2} d_{i+1}
-    = 2 l \mathcal{H}_i
+    = 2 \mathcal{H}_i
     \,,
     \label{eq:discrete_1d_phase_field}
 \end{align}
@@ -665,7 +665,7 @@ where $\overline{[.]}_i$ is replaced with its value at the centre of the cell. I
     \,, \quad
     M_{i,i+1} = - \frac{l g_c}{\Delta x^2}
     \,, \quad
-    f_i = 2 l \mathcal{H}_i
+    f_i = 2 \mathcal{H}_i
     \,.
 \end{align*}
 

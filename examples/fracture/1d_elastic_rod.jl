@@ -1,20 +1,20 @@
 using Serialization
 
-# ----- Define parameters with @kwdef -----
+# Define parameters
 Base.@kwdef struct Params
     E::Float64 = 2.0        # Young's modulus
-    gc::Float64 = 0.2       # critical energy for fracture
+    gc::Float64 = 10.0      # critical energy for fracture
     l::Float64 = 0.005      # regularization length (smaller to localize)
     k::Float64 = 1e-6       # small numerical factor
     L::Float64 = 1.0        # rod length
-    N::Int = 1025           # number of nodes (dx < l/3)
+    N::Int = 512 + 1        # number of nodes (dx < l/3)
     dx::Float64 = L/(N-1)   # spatial step
     tol::Float64 = 1e-6     # convergence tolerance
-    max_iter::Int = 100     # max staggered iterations
+    max_iter::Int = 20     # max staggered iterations
     savefile::String = "fracture.jls" # file to save iterations
 end
 
-# ----- midpoint average for finite-volume -----
+# midpoint
 function stagav(f)
     N = length(f)
     f_mid = zeros(N-1)
@@ -24,7 +24,7 @@ function stagav(f)
     return f_mid
 end
 
-# ----- compute strain u_x (with variable E) -----
+# strain u_x (with variable E)
 function DuDx(u, d, F, E_vec, p::Params)
     N = p.N
     idx = 1/p.dx
@@ -44,8 +44,8 @@ function DuDx(u, d, F, E_vec, p::Params)
     return u_x
 end
 
-# ----- main staggered solver -----
-function staggered_1D_serial(u, d, H, F, p::Params)
+# main staggered solver
+function main_solver(u, d, H, F, p::Params)
     N = p.N
     idx = 1/p.dx
     H_old = H
@@ -57,8 +57,8 @@ function staggered_1D_serial(u, d, H, F, p::Params)
 
     # ----- Define variable E with central soft spot -----
     E_vec = ones(N) .* p.E
-    mid = round(Int, N/2)
-    E_vec[mid-2:mid+2] .= p.E*0.5  # soften 5 points at center
+    # mid = round(Int, N/2)
+    # E_vec[mid-2:mid+2] .= p.E*0.5  # soften 5 points at center
 
     # initial save
     push!(u_all, copy(u))
@@ -69,7 +69,7 @@ function staggered_1D_serial(u, d, H, F, p::Params)
         u_old = copy(u)
         d_old = copy(d)
 
-        # ---- Step 1: strain and history ----
+        # Step 1: history
         u_x = DuDx(u,d,F,E_vec,p)
         H_new = 0.5*E_vec.*max.(u_x,0).^2
         H = max.(H_old,H_new)
@@ -77,7 +77,7 @@ function staggered_1D_serial(u, d, H, F, p::Params)
 
         println("Iteration $iter: max(d) = ", maximum(d))
 
-        # ---- Step 2: phase-field equation ----
+        # Step 2: phase-field
         M = zeros(N,N)
         f = 2*p.l*H
 
@@ -95,7 +95,7 @@ function staggered_1D_serial(u, d, H, F, p::Params)
 
         d = M \ f
 
-        # ---- Step 3: displacement equation ----
+        # Step 3: displacement
         g = (1.0 .- d).^2 .+ p.k
         g_mid = stagav(g)
 
@@ -119,12 +119,12 @@ function staggered_1D_serial(u, d, H, F, p::Params)
 
         u = A \ b
 
-        # ---- Step 4: save iteration ----
+        # save
         push!(u_all, copy(u))
         push!(d_all, copy(d))
         push!(H_all, copy(H))
 
-        # ---- Step 5: convergence check ----
+        # convergence check
         res = maximum(abs.(u - u_old)) + maximum(abs.(d - d_old))
         if res < p.tol
             println("Converged at iteration $iter")
@@ -142,15 +142,21 @@ x = range(0,p.L,p.N)
 u = zeros(p.N)
 d = zeros(p.N)
 H = zeros(p.N)
+
 # initial small defect
 defect_i = round(Int,p.N/2)
 d[defect_i] = 0.1 
-# initial non-zero history where the defect is, st. it is not smoothed out by laplacian. to get it, assume laplasian=0 and solve phase-field eq for H
+
+"""
+initial non-zero history where the defect is, 
+st. it is not smoothed out by laplacian. to get it,
+assume laplasian=0 and solve phase-field eq for H
+"""
 H[defect_i] = (p.gc*d[defect_i])/(2*p.l*(1.0-d[defect_i]))
 
-F = 10.0 
+F = 0.1
 
-u_sol, d_sol, H_sol, E_vec = staggered_1D_serial(u,d,H,F,p)
+u_sol, d_sol, H_sol, E_vec = main_solver(u,d,H,F,p)
 
 # save all iterations
 serialize(p.savefile, (x, u_sol, d_sol, H_sol, E_vec))
