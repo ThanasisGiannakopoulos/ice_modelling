@@ -9,7 +9,7 @@ Base.@kwdef struct Params
     L::Float64 = 1.0        # rod length
     N::Int = 2*512 + 1        # number of nodes (dx < l/3)
     dx::Float64 = L/(N-1)   # spatial step
-    T::Int = 300 + 1        # number of steps for pseudotime
+    T::Int = 1000 + 1        # number of steps for pseudotime
     dt::Float64 = 1/(T-1)     # step in pseudotime; when it is 1, we apply the full force on the right end
     tol::Float64 = 1e-6     # convergence tolerance
     max_iter::Int = 20      # max staggered iterations
@@ -33,6 +33,7 @@ end
 
 # strain u_x (with variable E)
 function DuDx(u::Vector, d::Vector, F::Float64, E::Vector, p::Params)
+
     N = p.N
     idx = 1/p.dx
     u_x = zeros(N)
@@ -49,12 +50,14 @@ function DuDx(u::Vector, d::Vector, F::Float64, E::Vector, p::Params)
     #u_x[N] = F / ((E[N])*((1-d[N])^2 + p.k))
 
     # backward FD right
-    u_x[N] = idx*(u[N-1]-u[N])
+    u_x[N] = idx*(u[N]-u[N-1])
     return u_x
 end
 
 # solver for a single timestep
-function ti_solver(u::Vector, d::Vector, H_old::Vector, F::Float64, E::Vector, p::Params)
+function ti_solver(u::Vector, d::Vector, H_old::Vector,
+        F::Float64, E::Vector, p::Params)
+
     N = p.N
     l = p.l
     gc = p.gc
@@ -76,7 +79,7 @@ function ti_solver(u::Vector, d::Vector, H_old::Vector, F::Float64, E::Vector, p
 
         # Dirichlet left
         A[1,1] = 1.0
-        b[1] = 0.0
+        b[1] = -F/10#0.0
 
         for i in 2:N-1
             if u_x[i] > 0
@@ -96,7 +99,7 @@ function ti_solver(u::Vector, d::Vector, H_old::Vector, F::Float64, E::Vector, p
         # b[N] = 2*F / (E[N]*g[N])
         # Dirichlet
         A[N,N] = 1.0
-        b[N] = F
+        b[N] = 9*F/10
 
         u = A \ b
         
