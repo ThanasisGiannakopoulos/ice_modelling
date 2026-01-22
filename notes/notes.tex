@@ -12,6 +12,7 @@
 
 % Maths
 \usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bbold}
 
 % Utilities
 \usepackage{enumitem}
@@ -24,7 +25,9 @@
 \newcommand{\p}{\partial}
 \newcommand{\tg}[1]{\textcolor{blue}{TG: #1} }
 \newcommand{\bb}[1]{\boldsymbol{#1}}
-
+\newcommand{\dev}{\text{dev}}
+\newcommand{\varv}{\mathsf{v}}
+\newcommand{\tr}{\text{tr}}
 % Document
 \title{Ice modelling notes}
 \author{}
@@ -728,7 +731,147 @@ For the algorithm we do the following:
 
 \tg{TODO: maybe try to add a non-zero damage threshold, and/or implement the version with numerical viscosity (how is time integrated there?)}
 
-\subsection{1d viscoelastic rod}
+\subsection{Viscoelastic model}
+
+We follow \cite{stocek2023} and that details a model for viscoelastic ice that is subject to water pressure in cracks (they have water in when they reach water level). Below is the full system of equations for the bulk of the domain of interest $\Omega$ in a dimensionless form:
+\begin{subequations}
+\begin{align}
+    - \nabla \cdot \bb{\sigma}
+    & = C_1 \left[ g(d) \bb{f} -p_w \nabla g(d) \right]
+    \,,
+    \quad \text{(momentum eq?)}
+    \label{eq:viscoelastic_full_eqs:momentum}
+    \\
+    g(d) \, 2 \eta \, \dev(\nabla_s \bb{\dot{w}}) - 2 C_2 \, \dev(\bb{\sigma})
+    & = 0
+    \,,
+    \label{eq:viscoelastic_full_eqs:2}
+    \\
+    \nabla \cdot \left(\bb{u}-\bb{w}\right) + \frac{3 \left(1-2\nu\right)}{2 \left(1 + \nu\right)} p
+    & = 0
+    \,,
+    \hspace{4.35cm} \text{(mass eq?)}
+    \label{eq:viscoelastic_full_eqs:mass}
+    \\
+    \nabla \cdot \bb{\dot{w}}
+    & = 0
+    \,,
+    \hspace{3.6cm}
+    \text{(incompressibility)}
+    \label{eq:viscoelastic_full_eqs:incompressibility}
+    \\
+    d - l^2 \Delta d 
+    & = C_3 \, l \, 2 \left(1 - d \right) \mathcal{H}
+    \,,
+    \hspace{2cm}
+    \text{(phase field)}
+\end{align}
+\label{eq:viscoelastic_full_eqs}
+\end{subequations}
+where $\dev$ is the deviatoric part of a tensor with $\dev(A)_{ij} = A_{ij} - \frac{1}{3} \delta_{ij} A_{kk}$ in index notation (and 3 dimensions), $\nabla_s$ the symmetrized gradient with $(\nabla_s v)_{ij} = (\p_i v_j + \p_j v_i)/2$ in index notation, $\eta=\eta(\dev(\nabla_s \bb{\dot{w}}))$, and $\bb{\sigma} = g(d) \bb{\sigma}_e^+ + \bb{\sigma}_e^-$ with $\bb{\sigma}_e^{\pm} := \langle -p \rangle_{\pm} \mathbb{1} + 2 \dev \, \left( \nabla_s(\bb{u-w})\right)_{\pm}$. Also, here $p$ is the volumetric part of $\sigma$ i.e. $p = - \text{tr}(\bb{\sigma}_v)/3$ (in 3d) and a Maxwell model is used for ice, where the total strain is decomposed additively into elastic and viscous strains, whereas the total Cauchy stress is equal in both elastic and viscous stresses
+\begin{align*}
+    \bb{\epsilon} = \bb{\epsilon}_e + \bb{\epsilon}_\varv
+    \,,
+    \\
+    \bb{\sigma} = \bb{\sigma}_e = \bb{\sigma}_\varv
+    \,.
+\end{align*}
+
+\tg{add BC for phase field and for Neumann of the rest}
+
+\subsubsection{1d viscoelastic cube \texorpdfstring{(symmetric in $y,z$ only $x$-dependence)}{}}
+
+In this setup we allow for the total $\bb{u}$ and viscous $\bb{w}$ displacements to be only in the $x$-direction and only depend on $t,x$, i.e.
+\begin{align*}
+    \bb{u} = (u(t,x),0,0)\,, \qquad
+    \bb{w} = (w(t,x),0,0)
+    \,.
+\end{align*}
+This can be viewed as a cube of ice that is confined to not move in $x$ direciton only, and is homogeneous in the $y,z$ directions. 
+%
+\tg{The confinement in the $y$ direction could be viewed as taking a part of an very wide ice sheet; the one in $z$, I don't know physically.}
+%
+The reason that we take this approach instead of a purely 1d model is that in this way the viscous parts survive, which are related to deviatoric and an essential element of the model. 
+
+Next, we evaluate all the necessary definitions and expression, to obtain this 1d reduction of the original viscoleastic model \eqref{eq:viscoelastic_full_eqs}. Start with the definition of the strain tensor $\epsilon_{ij} = (\p_i u_j + \p_j u_i)/2$ in index notation:
+\begin{align*}
+    &
+    \bb{\epsilon} = 
+    \begin{pmatrix}
+    \partial_x u & 0 & 0 \\
+    0 & 0 & 0 \\
+    0 & 0 & 0
+    \end{pmatrix}
+    \,,
+    \quad
+    \bb{\epsilon}_\varv = 
+    \begin{pmatrix}
+    \partial_x w & 0 & 0 \\
+    0 & 0 & 0 \\
+    0 & 0 & 0
+    \end{pmatrix}
+    \,,
+    \quad
+    \bb{\epsilon}_e = 
+    \begin{pmatrix}
+    \partial_x u - \partial_x w & 0 & 0 \\
+    0 & 0 & 0 \\
+    0 & 0 & 0
+    \end{pmatrix}
+    \\
+    &
+    \tr(\bb{\epsilon}) = \p_x u
+    \,,
+    \hspace{1.6cm}
+    \tr(\bb{\epsilon}_\varv) = \p_x w
+    \,,
+    \hspace{1.6cm}
+    \tr(\bb{\epsilon}_e) = \p_x u - \p_x w
+    \,.
+\end{align*}
+Then
+\begin{align*}
+    \dev(\bb{\epsilon}_e) = \bb{\epsilon}_e - \frac{1}{3} \tr(\bb{\epsilon}_e) \mathbb{1}
+    = 
+    \begin{pmatrix}
+    \frac{2(u_x-w_x)}{3} & 0 & 0 \\
+    0 & -\frac{u_x-w_x}{3} & 0 \\
+    0 & 0 & -\frac{u_x-w_x}{3}
+    \end{pmatrix}
+    \,,
+\end{align*}
+where $u_x -w_x:= \p_x u - \p_x w$. For the elastic stress tensor we have
+\begin{align*}
+    \bb{\sigma}_e = \lambda \, \tr(\bb{\epsilon}_e) + 2 \mu \, \bb{\epsilon}_e 
+    = - p \mathbb{1} + 2 \mu \, \dev({\bb{\epsilon}_e})
+    =
+    \begin{pmatrix}
+    (\lambda + 2 \mu) (u_x-w_x) & 0 & 0 \\
+    0 & \lambda (u_x-w_x) & 0 \\
+    0 & 0 & \lambda (u_x-w_x)
+    \end{pmatrix}
+    \,,
+\end{align*}
+where the pressure is $ p := -  \tr(\bb{\sigma}_e)/3 = - (\lambda + 2 \mu/3) \tr(\bb{\epsilon}_e) = -(\lambda + 2 \mu/3)(u_x - w_x)$. In the comporessible case this is related to the volumetric component of the elastic stress. For the viscous stress tensor we have 
+%
+\tg{(see discussion below eq (2.5) in \cite{stocek2023}; further above that it is not clear to me that it is the deviatoric part)}
+%
+\begin{align*}
+    \bb{\sigma}_\varv 
+    &
+    = - p \mathbb{1} + \dev(\bb{\sigma}_\varv) 
+    = - p \mathbb{1} + 2 \eta \, \dev(\bb{\dot{\epsilon}}_\varv)
+    \\
+    &
+    =
+    \begin{pmatrix}
+    (\lambda + \frac{2 \mu}{3}) (u_x-w_x) + \frac{4 \eta}{3} \dot{w}_x & 0 & 0 \\
+    0 & (\lambda + \frac{2 \mu}{3}) (u_x-w_x) - \frac{2 \eta}{3} \dot{w}_x & 0 \\
+    0 & 0 & (\lambda + \frac{2 \mu}{3}) (u_x-w_x) - \frac{2 \eta}{3} \dot{w}_x
+    \end{pmatrix}
+    \,,
+\end{align*}
+and if we want $\bb{\sigma}_e = \bb{\sigma}_\varv$ to hold, we get $\dot{w}_x = \mu (u_x - w_x)/\eta$. Also, as a sanity check, $p = - \tr(\bb{\sigma}_\varv) = -(\lambda + 2 \mu/3)(u_x - w_x)$.
 
 \subsection{2d viscoelastic plate}
 
