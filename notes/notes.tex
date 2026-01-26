@@ -739,18 +739,19 @@ We follow \cite{stocek2023} and that details a model for viscoelastic ice that i
     - \nabla \cdot \bb{\sigma}
     & = C_1 \left[ g(d) \bb{f} -p_w \nabla g(d) \right]
     \,,
-    \quad \text{(momentum eq?)}
+    \quad \text{(momentum eq)}
     \label{eq:viscoelastic_full_eqs:momentum}
     \\
     g(d) \, 2 \eta \, \dev(\nabla_s \bb{\dot{w}}) - 2 C_2 \, \dev(\bb{\sigma})
     & = 0
     \,,
+    \hspace{4cm} \text{(viscosity rule)}
     \label{eq:viscoelastic_full_eqs:viscosity_rule}
     \\
     \nabla \cdot \left(\bb{u}-\bb{w}\right) + \frac{3 \left(1-2\nu\right)}{2 \left(1 + \nu\right)} p
     & = 0
     \,,
-    \hspace{4.35cm} \text{(mass eq?)}
+    \hspace{4.35cm} \text{(mass eq)}
     \label{eq:viscoelastic_full_eqs:mass}
     \\
     \nabla \cdot \bb{\dot{w}}
@@ -765,6 +766,7 @@ We follow \cite{stocek2023} and that details a model for viscoelastic ice that i
     \,,
     \hspace{2cm}
     \text{(phase field)}
+    \label{eq:viscoelastic_full_eqs:phase_field}
 \end{align}
 \label{eq:viscoelastic_full_eqs}
 \end{subequations}
@@ -1006,7 +1008,7 @@ where $rhs_1$ is the first element of the $\bb{rhs}$ vector.
 
 The viscosity rule \eqref{eq:viscoelastic_full_eqs:viscosity_rule} $g(d) \, 2 \eta \, \dev(\nabla_s \bb{\dot{w}}) - 2 C_2 \, \dev(\bb{\sigma}) = 0$ is a matrix equation. We have that 
 \begin{align*}
-    \dev (\nabla_s \dot(w)) = 
+    \dev (\nabla_s \dot{\bb{w}}) = 
     \text{diag}
     \left(
         \frac{2}{3}\dot{w}_x \,, 
@@ -1045,6 +1047,24 @@ For the mass equation \eqref{eq:viscoelastic_full_eqs:mass} $\nabla \cdot \left(
 \end{align*}
 which leads to the constraint between the chosen parameters $E = 2(1+\nu)^2/(1-\nu)$, if we demand that is satisfy for every $u_x-w_x$.
 
+The incompressibility equation \eqref{eq:viscoelastic_full_eqs:incompressibility} $\nabla \cdot \dot{\bb{w}}$ in this setup reads $\dot{w}_x = \p_t \p_x w =0$, which is very restrictive in this setup, meaning that $w$ is a constant in time and space. We relax this assumption and do not satisfy it in this 1d setup. Physically, since the domain is allowed to move only in the x direction, its volume will have to change necessarily to have a non-trivial configuration.
+
+Finally, the phase field equations \eqref{eq:viscoelastic_full_eqs:phase_field} $d-l^2 \Delta d = C_3 \, l \, 2 \left(1 - d \right) \mathcal{H}$ reads
+\begin{align*}
+    d - l^2 \p_x^2 d = C_3 \, l \, 2 (1-d) \mathcal{H}
+    \,,
+    \\
+    \text{with } 
+    \mathcal{H}(x,t) 
+    :=
+    \max_s \langle \psi^ + \left( \bb{e}_e (x,s) \right) - \psi_{crit} \rangle_+
+    \\
+    \text{and }
+    \psi^+ = \frac{1}{2} \left(\lambda + \frac{2\mu}{3}\right)
+    \langle \tr (\bb{\epsilon}_e) \rangle_+^2
+    + \mu \, \tr \left( (\dev(\bb{\epsilon}_e)_+)^2 \right) 
+\end{align*}
+    
 \subsection{2d viscoelastic plate}
 
 then add gravity, pressure, tests against Miehe's elastic limits
