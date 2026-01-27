@@ -1115,6 +1115,7 @@ Collectively, for this setup, we have to solve the momentum, viscosity, and phas
     \label{eq:viscoelastic_1d:viscosity}
     \\
     d - l^2 \p_x^2 d = C_3 \, l \, 2 (1-d) \mathcal{H}
+    \label{eq:viscoelastic_1d_phase_field}
 \end{align}
 \label{eq:viscoelastic_1d}
 \end{subequations}
@@ -1131,6 +1132,15 @@ which automatically satisfies the mass equation. The incompressibility condition
 \end{align*}
 \tg{The condition $\bb{\sigma}_e = \bb{\sigma}_\varv$ yields $\dot{\bb{w}_x} = \mu (u_x-w_x)/\eta$. How does this match with the viscosity eq. above?}
 
+For numerical implementation with implicit time step:
+\begin{enumerate}
+    \item give initial data for $d_0,w_0,u_0$.
+    \item Consider two consecutive timesteps $t_k$ and $t_{k-1}$. Write eqs \eqref{eq:viscoelastic_1d:momentum} and \eqref{eq:viscoelastic_1d:viscosity} in the form $\bb{A} \cdot \bb{V} = \bb{b}$, where $\bb{V} = (u^k,w^k)^T$, $\bb{A}$ includes the $\p_t, \p_x$ operators for finite volume and implicit Euler, $\bb{b}$ includes the BC conditions for $u^k$,(what about $w^k$ BC?) and $d^{k-1}$ is used in $g(d)$. Solve with a fixed point iteration until convergence.
+    \item Use the results of above to solve the phae field eq and use that value of phase field in the next time step.
+\end{enumerate}
+
+
+For numerical implementation with explicit time step:
 \begin{enumerate}
     \item give initial data for $d,w$ and boundary data for $u$.
     \item solve the first eq to get $u(x)$
