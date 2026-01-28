@@ -1132,21 +1132,124 @@ which automatically satisfies the mass equation. The incompressibility condition
 \end{align*}
 \tg{The condition $\bb{\sigma}_e = \bb{\sigma}_\varv$ yields $\dot{\bb{w}_x} = \mu (u_x-w_x)/\eta$. How does this match with the viscosity eq. above?}
 
-For numerical implementation with implicit time step:
+\subsubsection{Numerical implementation with implicit time step}
+
+The recipe is the following: 
 \begin{enumerate}
-    \item give initial data for $d_0,w_0,u_0$.
-    \item Consider two consecutive timesteps $t_k$ and $t_{k-1}$. Write eqs \eqref{eq:viscoelastic_1d:momentum} and \eqref{eq:viscoelastic_1d:viscosity} in the form $\bb{A} \cdot \bb{V} = \bb{b}$, where $\bb{V} = (u^k,w^k)^T$, $\bb{A}$ includes the $\p_t, \p_x$ operators for finite volume and implicit Euler, $\bb{b}$ includes the BC conditions for $u^k$,(what about $w^k$ BC?) and $d^{k-1}$ is used in $g(d)$. Solve with a fixed point iteration until convergence.
-    \item Use the results of above to solve the phae field eq and use that value of phase field in the next time step.
+    \item Give initial data for $d_0,w_0,u_0$.
+    \item Consider two consecutive timesteps $t_k$ and $t_{k-1}$ and the phase field known and fixed. Write eqs \eqref{eq:viscoelastic_1d:momentum} and \eqref{eq:viscoelastic_1d:viscosity} in the form $\bb{A} \cdot \bb{V} = \bb{b}$, where $\bb{V} = (u^k,w^k)^T$, $\bb{A}$ includes the $\p_t, \p_x$ operators for finite volume and implicit Euler, $\bb{b}$ includes the BC conditions for $u^k$(and $w^k$ BC?), and $d^{k-1}$ is used in $g(d)$. Solve with a fixed point iteration until convergence.
+    \item Use the results of above to solve the phase field eq and use that value of phase field in the next time step.
 \end{enumerate}
+We use finite volume discretization on a uniform spatial grid.
+
+The form of eq. \eqref{eq:viscoelastic_1d:momentum} is
+\begin{align}
+    \p_x \left[ \bar{K} \left(u_x - w_x\right) \right] = 0
+    \,,
+    \label{eq:viscoelastic_1d:momentum:form}
+    \text{ with }
+    \bar{K} 
+    &
+    = 2 g(d) \left(\frac{\lambda}{2} + \frac{\mu}{3} + \frac{4}{3} \right) 
+    \text{ if } u_x-w_x >0
+    \,,
+    \\
+    \text{ or }
+    \bar{K} 
+    &
+    = 2 \left(\frac{\lambda}{2} + \frac{\mu}{3} + \frac{4}{3} \right)
+    \hspace{0.7cm}
+    \text{ if }
+    u_x-w_x \leq 0
+    \,,
+    \nonumber
+\end{align}
+and the form of eq. \eqref{eq:viscoelastic_1d:viscosity} is
+\begin{align}
+    \dot{w}_x = F \left(u_x - w_x \right)
+    \,,
+    \label{eq:viscoelastic_1d:viscosity:form}
+    \text{ with }
+    F 
+    &
+    = \frac{C_2}{g \eta}(\frac{16}{9}g + \frac{8}{9})
+    \text{ if } u_x - w_x >0
+    \,,
+    \\
+    \text{ or }
+    F 
+    &
+    = \frac{C_2}{g \eta}(\frac{8}{9}g + \frac{16}{9})
+    \text{ if } u_x - w_x \leq 0
+    \,,
+    \nonumber
+\end{align}
+with $g=g(d)$ and dynamic viscosity from Glen's flow law
+\begin{align}
+    \eta = \eta(\dot{\bb{\epsilon}}_\varv) 
+    = 
+    \frac{1}{2} A^{-\frac{1}{n}} 
+    \left(\frac{1}{2} \dot{\bb{\epsilon}}_\varv : \dot{\bb{\epsilon}}_\varv \right)^{\frac{1-n}{2n}}
+    =
+    \frac{1}{2} A^{-\frac{1}{n}} 
+    \left[\frac{1}{2} (\dot{w}_x)^2 \right]^{\frac{1-n}{2n}}
+    \,,
+    \label{eq:viscoelastic_1d:Glen}
+\end{align}
+with $n=3$ and $A$ a constant that depends on temperature. Here, $A$ is fixed during the simulation, and $\eta$, $d$ are calculated in a timestep $t_k$ from data of the previous timestep $t_{k-1}$. Also, the degredation function used in the numerical implementation isotropic $g(d) = (1-d)^2 + k$ with $k$ small (e.g. $k= 10^{-6}$), to avoid division by zero in the event of a complete damage.
+
+We want to write eqs. \eqref{eq:viscoelastic_1d:momentum:form} and \eqref{eq:viscoelastic_1d:viscosity:form} in the form $\bb{A} \cdot \bb{U} = \bb{b}$ with $\bb{U}=(u^k,w^k)^T$ the unkowns at timestep $t_k$ and $\bb{b}$ includes BC for $\bb{U}$. For \eqref{eq:viscoelastic_1d:momentum:form}, integrating over a cell labelled by $i$, with faces at $i \pm 1/2$, we have
+\begin{align*}
+    \int_{i-\frac{1}{2}}^{i+\frac{1}{2}}
+    \p_x \left[ \bar{K} (u_x-w_x)\right]
+    &
+    =
+    \left[ \bar{K} (u_x-w_x)\right]_{i+\frac{1}{2}}
+    -
+    \left[ \bar{K} (u_x-w_x)\right]_{i-\frac{1}{2}}
+    \\
+    &
+    =
+    \bar{K}_{i+\frac{1}{2}} 
+    \left( 
+        \frac{u_{i+1}-u_i}{\Delta x} - \frac{w_{i+1}-w_i}{\Delta x}
+    \right)
+    -
+    \bar{K}_{i-\frac{1}{2}} 
+    \left( 
+        \frac{u_i-u_{i-1}}{\Delta x} - \frac{w_i-w_{i-1}}{\Delta x}
+    \right)
+    \\
+    &
+    =
+    \frac{1}{\Delta x}
+    \left[
+        \bar{K}_{i+\frac{1}{2}} u_{i+1} 
+        - \left(\bar{K}_{i+\frac{1}{2}} +\bar{K}_{i-\frac{1}{2}}\right) u_i 
+        + \bar{K}_{i-\frac{1}{2}} u_{i-1}
+    \right]
+    \\
+    & \quad
+    -\frac{1}{\Delta x}
+    \left[
+        \bar{K}_{i+\frac{1}{2}} w_{i+1} 
+        - \left(\bar{K}_{i+\frac{1}{2}} +\bar{K}_{i-\frac{1}{2}}\right) w_i 
+        + \bar{K}_{i-\frac{1}{2}} w_{i-1}
+    \right]
+    \,,
+\end{align*}
+which to be consistent with a second derivative approximation is devided with another $\Delta x$ that comes from the integration of the rhs (its value is approximated as constant in the cell and represented by its value at $i$; the volume comes from the itnegral, here just $\Delta x$ because we are in 1d). Here, the rhs is zero, so $\Delta x$ can be removed altogether.
 
 
-For numerical implementation with explicit time step:
-\begin{enumerate}
-    \item give initial data for $d,w$ and boundary data for $u$.
-    \item solve the first eq to get $u(x)$
-    \item solve the 2nd eq to get $w$ in the next timestep
-    \item solve the 3rd eq with the data on the initial timestep to get $d$, which will be used in the next timestep?
-\end{enumerate}
+
+% \subsubsection{Numerical implementation with explicit time step}
+
+% \begin{enumerate}
+%     \item give initial data for $d,w$ and boundary data for $u$.
+%     \item solve the first eq to get $u(x)$
+%     \item solve the 2nd eq to get $w$ in the next timestep
+%     \item solve the 3rd eq with the data on the initial timestep to get $d$, which will be used in the next timestep?
+% \end{enumerate}
 
 \subsection{2d viscoelastic plate}
 
