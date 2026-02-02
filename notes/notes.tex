@@ -1196,9 +1196,9 @@ with $g=g(d)$ and dynamic viscosity from Glen's flow law
     \,,
     \label{eq:viscoelastic_1d:Glen}
 \end{align}
-with $n=3$ and $A$ a constant that depends on temperature. Here, $A$ is fixed during the simulation, and $\eta$, $d$ are calculated in a timestep $t_k$ from data of the previous timestep $t_{k-1}$. Also, the degredation function used in the numerical implementation isotropic $g(d) = (1-d)^2 + k$ with $k$ small (e.g. $k= 10^{-6}$), to avoid division by zero in the event of a complete damage.
+with $n=3$ and $A$ a constant that depends on temperature. Here, $A$ is fixed during the simulation, and $\eta$, $d$ are calculated in a timestep $t_k$ from data of the previous timestep $t_{k-1}$. Also, the degredation function used in the numerical implementation is $g(d) = (1-d)^2 + k$ with $k$ small (e.g. $k= 10^{-6}$), to avoid division by zero in the event of a complete damage.
 
-We want to write eqs. \eqref{eq:viscoelastic_1d:momentum:form} and \eqref{eq:viscoelastic_1d:viscosity:form} in the form $\bb{A} \cdot \bb{U} = \bb{b}$ with $\bb{U}=(u^k,w^k)^T$ the unkowns at timestep $t_k$ and $\bb{b}$ includes BC for $\bb{U}$. For \eqref{eq:viscoelastic_1d:momentum:form}, integrating over a cell labelled by $i$, with faces at $i \pm 1/2$, we have
+We want to write eqs. \eqref{eq:viscoelastic_1d:momentum:form} and \eqref{eq:viscoelastic_1d:viscosity:form} in the form $\bb{A} \cdot \bb{U} = \bb{b}$ with $\bb{U}=(\bb{u}^k,\bb{w}^k)^T$ the unkowns at timestep $t_k$ and $\bb{b}$ includes BC for $\bb{U}$. For \eqref{eq:viscoelastic_1d:momentum:form}, integrating over a cell labelled by $i$, with faces at $i \pm 1/2$, we have
 \begin{align*}
     \int_{i-\frac{1}{2}}^{i+\frac{1}{2}}
     \p_x \left[ \bar{K} (u_x-w_x)\right]
@@ -1238,8 +1238,102 @@ We want to write eqs. \eqref{eq:viscoelastic_1d:momentum:form} and \eqref{eq:vis
     \right]
     \,,
 \end{align*}
-which to be consistent with a second derivative approximation is devided with another $\Delta x$ that comes from the integration of the rhs (its value is approximated as constant in the cell and represented by its value at $i$; the volume comes from the itnegral, here just $\Delta x$ because we are in 1d). Here, the rhs is zero, so $\Delta x$ can be removed altogether.
+whichm to be consistent with a second derivative approximation, is devided with another $\Delta x$ that comes from the integration of the rhs (its value is approximated as constant in the cell and represented by its value at $i$; the volume comes from the itnegral, here just $\Delta x$ because we are in 1d). Here, the rhs is zero, so $\Delta x$ can be removed altogether. 
 
+For eq. \eqref{eq:viscoelastic_1d:viscosity:form} we have
+\begin{align*}
+    \p_t \p_x w 
+    & 
+    = F \p_x(u-w)
+    \\
+    \rightarrow
+    \p_t \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \p_x w
+    &
+    = \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} F \p_x(u-w)
+    = \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \p_x \left[ F (u-w) \right]
+    - \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \left( \p_x F \right) (u-w)
+    \\
+    \rightarrow
+    \p_t \left( w_{i+\frac{1}{2}} - w_{i-\frac{1}{2}} \right)
+    & = 
+    \left[F (u-w)\right]_{i+\frac{1}{2}}
+    - \left[F (u-w)\right]_{i-\frac{1}{2}}
+    - \left[F_x(u-w)\right]_i
+    \\
+    \rightarrow
+    \p_t \left(\frac{w_{i+1}}{2} - \frac{w_{i-1}}{2}\right)
+    &
+    =
+    F_{i+\frac{1}{2}} \left(\frac{u_i+u_{i+1}}{2} - \frac{w_i+w_{i+1}}{2}\right)
+    - F_{i-\frac{1}{2}} \left(\frac{u_i+u_{i-1}}{2} - \frac{w_i+w_{i-1}}{2}\right)
+    - F_{x,i}(u_i-w_i)
+    \\
+    \rightarrow
+    \p_t \left(\frac{w_{i+1}}{2} - \frac{w_{i-1}}{2}\right)
+    &
+    = 
+    u_i \left( \frac{F_{i+\frac{1}{2}}}{2} - \frac{F_{i-\frac{1}{2}}}{2} - F_{x,i}\right)
+    + u_{i+1} \frac{F_{i+\frac{1}{2}}}{2}
+    - u_{i-1} \frac{F_{i-\frac{1}{2}}}{2}
+    \\
+    & \quad
+    - 
+    \left[
+    w_i \left( \frac{F_{i+\frac{1}{2}}}{2} - \frac{F_{i-\frac{1}{2}}}{2} - F_{x,i}\right)
+    + w_{i+1} \frac{F_{i+\frac{1}{2}}}{2}
+    - w_{i-1} \frac{F_{i-\frac{1}{2}}}{2}
+    \right]
+    \,,
+\end{align*}
+where in this scheme we choose to work with $F_x$ and not $(u_x-w_x)$ in solving for $(u,w)$, because $F=F(d)$, which is considered fixed when we solve for $u,w$. For the implicit Euler step we have that $w^k = w^{k-1} + \Delta t \, \text{rhs}^k$ which leads to
+\begin{align*}
+    &
+    \frac{w^k_{i+1}}{2} - \frac{w^k_{i-1}}{2}
+    = 
+    \frac{w^{k-1}_{i+1}}{2} - \frac{w^{k-1}_{i-1}}{2}
+    + \Delta t \,
+    \left[
+    u^k_i \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} - 
+    \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\right)
+    + u^k_{i+1} \frac{F^{k-1}_{i+\frac{1}{2}}}{2}
+    - u^k_{i-1} \frac{F^{k-1}_{i-\frac{1}{2}}}{2}
+    \right]
+    \\
+    &
+    \hspace{3cm}
+    - 
+    \Delta t
+    \left[
+    w^k_i \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} 
+    - \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\right)
+    + w^k_{i+1} \frac{F^{k-1}_{i+\frac{1}{2}}}{2}
+    - w^k_{i-1} \frac{F^{k-1}_{i-\frac{1}{2}}}{2}
+    \right]
+    \,,
+    \\
+    \rightarrow \quad
+    &
+    u^k_{i-1} \Delta t \frac{F^{k-1}_{i-\frac{1}{2}}}{2}
+    - u^k_{i} \Delta t \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} - 
+    \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\right)
+    - u^k_{i+1} \Delta t \frac{F^{k-1}_{i+\frac{1}{2}}}{2}
+    \\
+    & 
+    - w^k_{i-1}  \frac{1 + \Delta t \, F^{k-1}_{i-\frac{1}{2}}}{2}
+    + w^k_{i} \Delta t \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} - 
+    \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\right)
+    + w^k_{i+1} \frac{1 + \Delta t  \, F^{k-1}_{i+\frac{1}{2}}}{2}
+    \\
+    & \qquad 
+    = \frac{w^{k-1}_{i+1}}{2} - \frac{w^{k-1}_{i-1}}{2}
+\end{align*}
+
+% So eq. \eqref{eq:viscoelastic_1d:momentum:form} is written in the form
+% \begin{align*}
+%     \left( \bar{\bb{K}}, - \bar{\bb{K}} \right) \cdot \left( \bb{u}^k, \bb{w}^k \right)^T = \bb{b}_1 
+%     \,,
+% \end{align*}
+% where $\bb{b}_1$ is the discretized vector for the rhs of eq.
 
 
 % \subsubsection{Numerical implementation with explicit time step}
