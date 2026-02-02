@@ -1137,7 +1137,7 @@ which automatically satisfies the mass equation. The incompressibility condition
 The recipe is the following: 
 \begin{enumerate}
     \item Give initial data for $d_0,w_0,u_0$.
-    \item Consider two consecutive timesteps $t_k$ and $t_{k-1}$ and the phase field known and fixed. Write eqs \eqref{eq:viscoelastic_1d:momentum} and \eqref{eq:viscoelastic_1d:viscosity} in the form $\bb{A} \cdot \bb{V} = \bb{b}$, where $\bb{V} = (u^k,w^k)^T$, $\bb{A}$ includes the $\p_t, \p_x$ operators for finite volume and implicit Euler, $\bb{b}$ includes the BC conditions for $u^k$(and $w^k$ BC?), and $d^{k-1}$ is used in $g(d)$. Solve with a fixed point iteration until convergence.
+    \item Consider two consecutive timesteps $t_k$ and $t_{k-1}$ and the phase field known and fixed. Write eqs \eqref{eq:viscoelastic_1d:momentum} and \eqref{eq:viscoelastic_1d:viscosity} in the form $\bb{A} \cdot \bb{V} = \bb{b}$, where $\bb{V} = (\bb{u}^k,\bb{w}^k)^T$, $\bb{A}$ includes the $\p_t, \p_x$ operators for finite volume and implicit Euler, $\bb{b}$ includes the BC conditions for $u^k$(and $w^k$ BC?), and $d^{k-1}$ is used in $g(d)$. Solve with a fixed point iteration until convergence. The fixed point iterations are labelled with $j \in[1,J]$. A scalar variable that includes all the discrete labels looks like this: $f_i^{k,j}$.
     \item Use the results of above to solve the phase field eq and use that value of phase field in the next time step.
 \end{enumerate}
 We use finite volume discretization on a uniform spatial grid.
@@ -1164,27 +1164,7 @@ The form of eq. \eqref{eq:viscoelastic_1d:momentum} is
     \,,
     \nonumber
 \end{align}
-and the form of eq. \eqref{eq:viscoelastic_1d:viscosity} is
-\begin{align}
-    \dot{w}_x = F \left(u_x - w_x \right)
-    \,,
-    \label{eq:viscoelastic_1d:viscosity:form}
-    \text{ with }
-    F 
-    &
-    = \frac{C_2}{g \eta}(\frac{16}{9}g + \frac{8}{9})
-    \text{ if } u_x - w_x >0
-    \,,
-    \\
-    \text{ or }
-    F 
-    &
-    = \frac{C_2}{g \eta}(\frac{8}{9}g + \frac{16}{9})
-    \text{ if } u_x - w_x \leq 0
-    \,,
-    \nonumber
-\end{align}
-with $g=g(d)$ and dynamic viscosity from Glen's flow law
+with $g=g(d)$. The dynamic viscosity comes from Glen's flow law
 \begin{align}
     \eta = \eta(\dot{\bb{\epsilon}}_\varv) 
     = 
@@ -1196,7 +1176,33 @@ with $g=g(d)$ and dynamic viscosity from Glen's flow law
     \,,
     \label{eq:viscoelastic_1d:Glen}
 \end{align}
-with $n=3$ and $A$ a constant that depends on temperature. Here, $A$ is fixed during the simulation, and $\eta$, $d$ are calculated in a timestep $t_k$ from data of the previous timestep $t_{k-1}$. Also, the degredation function used in the numerical implementation is $g(d) = (1-d)^2 + k$ with $k$ small (e.g. $k= 10^{-6}$), to avoid division by zero in the event of a complete damage.
+with $n=3$ and $A$ a constant that depends on temperature. The form of eq. \eqref{eq:viscoelastic_1d:viscosity} is 
+\begin{align*}
+    \eta(\dot{w}_x) \dot{w}_x = F (u_x-w_x)
+\end{align*}
+which after we replace the viscosity and solve for $\dot{w}_x$
+\begin{align}
+    \dot{w}_x = F \left(u_x - w_x \right)^{\frac{2n}{n+1}}
+    \,,
+    \label{eq:viscoelastic_1d:viscosity:form}
+    \text{ with }
+    F = F(d)
+    &
+    = 2 A^{\frac{2}{n+1}} 
+    \left[C_2(\frac{16}{9} + \frac{8}{9 g(d)})\right]^{\frac{2n}{n+1}}
+    \text{ if } u_x - w_x >0
+    \,,
+    \\
+    \text{ or }
+    F =F(d)
+    &
+    = 2 A^{\frac{2}{n+1}} 
+    \left[C_2(\frac{8}{9} + \frac{16}{9 g(d)})\right]^{\frac{2n}{n+1}}
+    \text{ if } u_x - w_x \leq 0
+    \,,
+    \nonumber
+\end{align}
+Here, $A$ is fixed during the simulation, and $g(d)$ are calculated in a timestep $t_k$ from the value of the phase field $d$ of the previous timestep $t_{k-1}$. Also, the degredation function used in the numerical implementation is $g(d) = (1-d)^2 + \kappa$ with $\kappa$ small (e.g. $\kappa = 10^{-6}$), to avoid division by zero in the event of a complete damage.
 
 We want to write eqs. \eqref{eq:viscoelastic_1d:momentum:form} and \eqref{eq:viscoelastic_1d:viscosity:form} in the form $\bb{A} \cdot \bb{U} = \bb{b}$ with $\bb{U}=(\bb{u}^k,\bb{w}^k)^T$ the unkowns at timestep $t_k$ and $\bb{b}$ includes BC for $\bb{U}$. For \eqref{eq:viscoelastic_1d:momentum:form}, integrating over a cell labelled by $i$, with faces at $i \pm 1/2$, we have
 \begin{align*}
@@ -1238,95 +1244,401 @@ We want to write eqs. \eqref{eq:viscoelastic_1d:momentum:form} and \eqref{eq:vis
     \right]
     \,,
 \end{align*}
-whichm to be consistent with a second derivative approximation, is devided with another $\Delta x$ that comes from the integration of the rhs (its value is approximated as constant in the cell and represented by its value at $i$; the volume comes from the itnegral, here just $\Delta x$ because we are in 1d). Here, the rhs is zero, so $\Delta x$ can be removed altogether. 
+which, to be consistent with a second derivative approximation, is devided with another $\Delta x$ that comes from the integration of the rhs (its value is approximated as constant in the cell and represented by its value at $i$; the volume comes from the itnegral, here just $\Delta x$ because we are in 1d). Here, the rhs is zero, so $\Delta x$ can be removed altogether. 
+
+% %%%%%%%
+% %% this part is correct for linear viscosity rule i.e. n=1 in Glen's law
+% %%%%%%%
+% For eq. \eqref{eq:viscoelastic_1d:viscosity:form} we have
+% \begin{align*}
+%     \p_t \p_x w 
+%     & 
+%     = F \p_x(u-w)
+%     \\
+%     \rightarrow
+%     \p_t \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \p_x w
+%     &
+%     = \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} F \p_x(u-w)
+%     = \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \p_x \left[ F (u-w) \right]
+%     - \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \left( \p_x F \right) (u-w)
+%     \\
+%     \rightarrow
+%     \p_t \left( w_{i+\frac{1}{2}} - w_{i-\frac{1}{2}} \right)
+%     & = 
+%     \left[F (u-w)\right]_{i+\frac{1}{2}}
+%     - \left[F (u-w)\right]_{i-\frac{1}{2}}
+%     - \left[F_x(u-w)\right]_i \Delta x
+%     \\
+%     \rightarrow
+%     \p_t \left(\frac{w_{i+1}}{2} - \frac{w_{i-1}}{2}\right)
+%     &
+%     =
+%     F_{i+\frac{1}{2}} \left(\frac{u_i+u_{i+1}}{2} - \frac{w_i+w_{i+1}}{2}\right)
+%     - F_{i-\frac{1}{2}} \left(\frac{u_i+u_{i-1}}{2} - \frac{w_i+w_{i-1}}{2}\right)
+%     - F_{x,i}(u_i-w_i)\Delta x
+%     \\
+%     \rightarrow
+%     \p_t \left(\frac{w_{i+1}}{2} - \frac{w_{i-1}}{2}\right)
+%     &
+%     = 
+%     u_i \left( \frac{F_{i+\frac{1}{2}}}{2} - \frac{F_{i-\frac{1}{2}}}{2} 
+%     - F_{x,i}\Delta x \right)
+%     + u_{i+1} \frac{F_{i+\frac{1}{2}}}{2}
+%     - u_{i-1} \frac{F_{i-\frac{1}{2}}}{2}
+%     \\
+%     & \quad
+%     - 
+%     \left[
+%     w_i \left( \frac{F_{i+\frac{1}{2}}}{2} - \frac{F_{i-\frac{1}{2}}}{2} 
+%     - F_{x,i}\Delta x\right)
+%     + w_{i+1} \frac{F_{i+\frac{1}{2}}}{2}
+%     - w_{i-1} \frac{F_{i-\frac{1}{2}}}{2}
+%     \right]
+%     \,,
+% \end{align*}
+% where in this scheme we choose to work with $F_x$ and not $(u_x-w_x)$ in solving for $(u,w)$, because $F=F(d)$, which is considered fixed when we solve for $u,w$. For the implicit Euler step we have that $w^k = w^{k-1} + \Delta t \, \text{rhs}^k$ which leads to
+% \begin{align*}
+%     &
+%     \frac{w^k_{i+1}}{2} - \frac{w^k_{i-1}}{2}
+%     = 
+%     \frac{w^{k-1}_{i+1}}{2} - \frac{w^{k-1}_{i-1}}{2}
+%     + \Delta t \,
+%     \left[
+%     u^k_i \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} - 
+%     \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\Delta x\right)
+%     + u^k_{i+1} \frac{F^{k-1}_{i+\frac{1}{2}}}{2}
+%     - u^k_{i-1} \frac{F^{k-1}_{i-\frac{1}{2}}}{2}
+%     \right]
+%     \\
+%     &
+%     \hspace{3cm}
+%     - 
+%     \Delta t
+%     \left[
+%     w^k_i \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} 
+%     - \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\Delta x\right)
+%     + w^k_{i+1} \frac{F^{k-1}_{i+\frac{1}{2}}}{2}
+%     - w^k_{i-1} \frac{F^{k-1}_{i-\frac{1}{2}}}{2}
+%     \right]
+%     \,,
+%     \\
+%     \rightarrow \quad
+%     &
+%     u^k_{i-1} \Delta t \frac{F^{k-1}_{i-\frac{1}{2}}}{2}
+%     - u^k_{i} \Delta t \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} - 
+%     \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\Delta x\right)
+%     - u^k_{i+1} \Delta t \frac{F^{k-1}_{i+\frac{1}{2}}}{2}
+%     \\
+%     & 
+%     - w^k_{i-1}  \frac{1 + \Delta t \, F^{k-1}_{i-\frac{1}{2}}}{2}
+%     + w^k_{i} \Delta t \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} - 
+%     \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\Delta x\right)
+%     + w^k_{i+1} \frac{1 + \Delta t  \, F^{k-1}_{i+\frac{1}{2}}}{2}
+%     \\
+%     & \qquad 
+%     = \frac{w^{k-1}_{i+1}}{2} - \frac{w^{k-1}_{i-1}}{2}
+%     \,.
+% \end{align*}
+% %%%%%%%
 
 For eq. \eqref{eq:viscoelastic_1d:viscosity:form} we have
 \begin{align*}
     \p_t \p_x w 
     & 
-    = F \p_x(u-w)
+    = F \p_x(u-w) \left(u_x-w_x\right)^{\frac{2n}{n+1}-1}
+    = F \p_x(u-w) G
     \\
     \rightarrow
     \p_t \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \p_x w
     &
-    = \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} F \p_x(u-w)
-    = \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \p_x \left[ F (u-w) \right]
+    = \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \p_x \left[ F (u-w) 
+    G\right]
+    \\
+    & \quad
     - \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} \left( \p_x F \right) (u-w)
+    G
+    \\
+    & \quad
+    - \int_{i-\frac{1}{2}}^{i+\frac{1}{2}} F  (u-w)
+    \left( \p_x G \right)
     \\
     \rightarrow
     \p_t \left( w_{i+\frac{1}{2}} - w_{i-\frac{1}{2}} \right)
     & = 
-    \left[F (u-w)\right]_{i+\frac{1}{2}}
-    - \left[F (u-w)\right]_{i-\frac{1}{2}}
-    - \left[F_x(u-w)\right]_i
+    \left[F \, G (u-w)\right]_{i+\frac{1}{2}}
+    - \left[F \, G(u-w)\right]_{i-\frac{1}{2}}
+    - \left[F_x \, G (u-w)\right]_i \Delta x
+    - \left[F \, G_x (u-w)\right]_i \Delta x
     \\
     \rightarrow
     \p_t \left(\frac{w_{i+1}}{2} - \frac{w_{i-1}}{2}\right)
     &
     =
-    F_{i+\frac{1}{2}} \left(\frac{u_i+u_{i+1}}{2} - \frac{w_i+w_{i+1}}{2}\right)
-    - F_{i-\frac{1}{2}} \left(\frac{u_i+u_{i-1}}{2} - \frac{w_i+w_{i-1}}{2}\right)
-    - F_{x,i}(u_i-w_i)
+    F_{i+\frac{1}{2}} G_{i+\frac{1}{2}} 
+    \left(\frac{u_i+u_{i+1}}{2} - \frac{w_i+w_{i+1}}{2}\right)
+    - F_{i-\frac{1}{2}} G_{i-\frac{1}{2}}
+    \left(\frac{u_i+u_{i-1}}{2} - \frac{w_i+w_{i-1}}{2}\right)
+    \\
+    & \quad 
+    - F_{x,i} G_i (u_i-w_i) \Delta x
+    - F_i G_{x,i} (u_i-w_i) \Delta x
     \\
     \rightarrow
     \p_t \left(\frac{w_{i+1}}{2} - \frac{w_{i-1}}{2}\right)
     &
     = 
-    u_i \left( \frac{F_{i+\frac{1}{2}}}{2} - \frac{F_{i-\frac{1}{2}}}{2} - F_{x,i}\right)
-    + u_{i+1} \frac{F_{i+\frac{1}{2}}}{2}
-    - u_{i-1} \frac{F_{i-\frac{1}{2}}}{2}
+    u_i 
+    \left[ \frac{F_{i+\frac{1}{2}} G_{i+\frac{1}{2}}}{2} 
+    - \frac{F_{i-\frac{1}{2}} G_{i-\frac{1}{2}}}{2} 
+    - \left(F_{x,i} G_i + F_i G_{x,i}\right)\Delta x 
+    \right]
+    \\
+    &
+    \quad
+    + u_{i+1} \frac{F_{i+\frac{1}{2}} G_{i+\frac{1}{2}}}{2}
+    - u_{i-1} \frac{F_{i-\frac{1}{2}} G_{i-\frac{1}{2}}}{2}
     \\
     & \quad
-    - 
-    \left[
-    w_i \left( \frac{F_{i+\frac{1}{2}}}{2} - \frac{F_{i-\frac{1}{2}}}{2} - F_{x,i}\right)
-    + w_{i+1} \frac{F_{i+\frac{1}{2}}}{2}
-    - w_{i-1} \frac{F_{i-\frac{1}{2}}}{2}
-    \right]
-    \,,
-\end{align*}
-where in this scheme we choose to work with $F_x$ and not $(u_x-w_x)$ in solving for $(u,w)$, because $F=F(d)$, which is considered fixed when we solve for $u,w$. For the implicit Euler step we have that $w^k = w^{k-1} + \Delta t \, \text{rhs}^k$ which leads to
-\begin{align*}
-    &
-    \frac{w^k_{i+1}}{2} - \frac{w^k_{i-1}}{2}
-    = 
-    \frac{w^{k-1}_{i+1}}{2} - \frac{w^{k-1}_{i-1}}{2}
-    + \Delta t \,
-    \left[
-    u^k_i \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} - 
-    \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\right)
-    + u^k_{i+1} \frac{F^{k-1}_{i+\frac{1}{2}}}{2}
-    - u^k_{i-1} \frac{F^{k-1}_{i-\frac{1}{2}}}{2}
+    - w_i 
+    \left[ \frac{F_{i+\frac{1}{2}} G_{i+\frac{1}{2}}}{2} 
+    - \frac{F_{i-\frac{1}{2}} G_{i-\frac{1}{2}}}{2} 
+    - \left(F_{x,i} G_i + F_i G_{x,i}\right)\Delta x 
     \right]
     \\
     &
-    \hspace{3cm}
-    - 
-    \Delta t
-    \left[
-    w^k_i \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} 
-    - \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\right)
-    + w^k_{i+1} \frac{F^{k-1}_{i+\frac{1}{2}}}{2}
-    - w^k_{i-1} \frac{F^{k-1}_{i-\frac{1}{2}}}{2}
-    \right]
+    \quad
+    - w_{i+1} \frac{F_{i+\frac{1}{2}} G_{i+\frac{1}{2}}}{2}
+    + w_{i-1} \frac{F_{i-\frac{1}{2}} G_{i-\frac{1}{2}}}{2}
     \,,
+\end{align*}
+where we have split $(u_x-w_x)^\frac{2n}{n+1}$ into $\p_x(u-w)G$ with $G:=(u_x-w_x)^{\frac{2n}{n+1}-1}$ which is evaluated within a fixed point iteration $j$ using the solution of the previous iteration $j-1$, and $F=F(d)$ uses $d^{k-1}$ from the previous timestep $t_{k-1}$ for the fixed point iterations on timestep $t_k$. If $n=1$, then we have the linear rheology case and $G=1, G_x=0$, for which $J=1$ for the fixed point solver (no coefficients that depend on $u,w$ in front of $u,w$ unknowns). Formally we have
+\begin{align*}
+    G_x = \left(\frac{2n}{n+1}-1\right) (u_x-w_x)^{\frac{-2}{n+1}} (u_{xx}-w_{xx})
+    = \frac{n-1}{n+1} (u_x-w_x)^{\frac{n-1}{n+1}} \p_x \ln(u_x-w_x)
+    \,, 
+\end{align*}
+which can formally give divergences if $u_x-w_x = 0$. To avoid that, we calculate $G$ and then $G_x$ numerically, using centred finite difference (FD) operator for first order derivatives (with forward and backward stencils for $i=1,N$, respectively).
+
+Reminder: $f^{k,j}_i$ means scalar variable $f$ at spatial grid point $i \in[0,N]$, timestep $t_k$, and fixed point iteration $j \in [1,J]$. For the implicit Euler step we have that $w^k = w^{k-1} + \Delta t \, \text{rhs}^k$. We use the notation $F^k_i = F(d^k_i)$ since there is only one step to solve for $d$ and not iterations, $G^j_i=G(u^{k,j}_i,w^{k,j}_i)$ and $G_{x,i}$ is the discretized version of $G_x$ after action with the aforementioned FD on $G$. We get the following
+\begin{align*}
+    &
+    \frac{w^{k,j}_{i+1}}{2} - \frac{w^{k,j}_{i-1}}{2}
+    = 
+    \frac{w^{k-1,J}_{i+1}}{2} - \frac{w^{k-1,J}_{i-1}}{2}
+    \\
+    &
+    \hspace{1cm}
+    + \Delta t \,
+    \left\{
+    u^{k,j}_i 
+    \left[ 
+        \frac{F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2} 
+        - \frac{F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+        - \left(F^{k-1}_{x,i} G^{j-1}_i + F^{k-1}_i G^{j-1}_{x,i}\right)\Delta x
+    \right]
+    \right.
+    \\
+    &\hspace{1cm}
+    \left.
+        + u^{k,j}_{i+1} \frac{F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2}
+        - u^{k,j}_{i-1} \frac{F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+    \right\}
+    \\
+    &
+    - \Delta t \,
+    \left\{
+    w^{k,j}_i 
+    \left[ 
+        \frac{F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2} 
+        - \frac{F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+        - \left(F^{k-1}_{x,i} G^{j-1}_i + F^{k-1}_i G^{j-1}_{x,i}\right)\Delta x
+    \right]
+    \right.
+    \\
+    &\hspace{1cm}
+    \left.
+        + w^{k,j}_{i+1} \frac{F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2}
+        - w^{k,j}_{i-1} \frac{F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+    \right\}
     \\
     \rightarrow \quad
     &
-    u^k_{i-1} \Delta t \frac{F^{k-1}_{i-\frac{1}{2}}}{2}
-    - u^k_{i} \Delta t \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} - 
-    \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\right)
-    - u^k_{i+1} \Delta t \frac{F^{k-1}_{i+\frac{1}{2}}}{2}
+    u^{k,j}_{i-1} \Delta t \frac{F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+    - u^{k,j}_{i} \Delta t 
+    \left[ 
+        \frac{F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2} 
+        - \frac{F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+        - \left(F^{k-1}_{x,i} G^{j-1}_i + F^{k-1}_i G^{j-1}_{x,i}\right)\Delta x
+    \right]
+    \\
+    &
+    - u^{k,j}_{i+1} \Delta t \frac{F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2}
     \\
     & 
-    - w^k_{i-1}  \frac{1 + \Delta t \, F^{k-1}_{i-\frac{1}{2}}}{2}
-    + w^k_{i} \Delta t \left( \frac{F^{k-1}_{i+\frac{1}{2}}}{2} - 
-    \frac{F^{k-1}_{i-\frac{1}{2}}}{2} - F^{k-1}_{x,i}\right)
-    + w^k_{i+1} \frac{1 + \Delta t  \, F^{k-1}_{i+\frac{1}{2}}}{2}
+    - w^{k,j}_{i-1}  \frac{1 + \Delta t \, F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+    + w^{k,j}_{i} \Delta t 
+    \left[ 
+        \frac{F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2} 
+        - \frac{F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+        - \left(F^{k-1}_{x,i} G^{j-1}_i + F^{k-1}_i G^{j-1}_{x,i}\right)\Delta x
+    \right]
+    \\
+    &
+    + w^{k,j}_{i+1} \frac{1 + \Delta t  \, F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2}
     \\
     & \qquad 
-    = \frac{w^{k-1}_{i+1}}{2} - \frac{w^{k-1}_{i-1}}{2}
+    = \frac{w^{k-1,J}_{i+1}}{2} - \frac{w^{k-1,J}_{i-1}}{2}
+    \,.
 \end{align*}
+
+The previous derivations give the matrix and rhs vector elements for the internal points. For the points $i=0,N$ we need boundary conditions. We apply Dirichlet BC for both $u,w$. For $u$ we prescribe the total displacement at $x=0,L$ which leads to $u^k_{1,N} = \bar{u}^k_{1,N}$, with $\bar{u}$ the prescribed values. For $w$ we start from the viscosity equation $\dot{w}_x = F(u_x-w_x)$, assume a constant $F$ in $x$ to integrate in $x$ and arrive at $\p_t w \sim F (u-w)$, apply the implicit Euler discretization and solve for $w^k$ to obtain
+\begin{align*}
+    w^k_{1,N} = 
+    w^{k-1}_{1,N} \frac{1}{1 + \Delta t F^{k-1}_{1,N}} 
+    + \bar{u}^k_{1,N} \frac{\Delta t F^{k-1}_{1,N}}
+    {1 + \Delta t F^{k-1}_{1,N}}
+    \,.
+\end{align*}
+So the resulting discretized finite volume and implicit Euler scheme for eqs. \eqref{eq:viscoelastic_1d:momentum:form}, \eqref{eq:viscoelastic_1d:viscosity:form} is
+\begin{align}
+    \begin{pmatrix}
+        \bb{A} & \bb{B}
+        \\
+        \bb{C} & \bb{D}
+    \end{pmatrix}
+    \cdot
+    \begin{pmatrix}
+        \bb{u}^k
+        \\
+        \bb{w}^k
+    \end{pmatrix}
+    = 
+    \begin{pmatrix}
+        \bb{a}
+        \\
+        \bb{c}
+    \end{pmatrix}
+    \,,
+    \label{eq:lin_algebra_sys}
+\end{align}
+with
+\begin{align}
+    \text{if } 
+    &i=1:
+    \label{eq:lin_algebra_sys:elements}
+    \\
+    &
+    A_{1,1} = 1 
+    \,,
+    \quad
+    B_{1,1} = 0 
+    \,, \quad
+    a_1 = \bar{u}^k_1
+    \,,
+    \nonumber
+    \\
+    &
+    C_{1,1} = 0
+    \,, \quad
+    D_{1,1} = 1
+    \,, \quad
+    c_1 = w^{k-1,J}_1 \frac{1}{1 + \Delta t F^{k-1}_1} 
+    + \bar{u}^k_1 \frac{\Delta t F^{k-1}_1}
+    {1 + \Delta t F^{k-1}_1}
+    \,,
+    \nonumber
+    \\
+    \text{if } 
+    &1<i<N:
+    \nonumber
+    \\
+    &
+    A_{i,i-1} = \Delta x ^{-2} \bar{K}^{k-1}_{i-\frac{1}{2}}
+    \,, \quad
+    A_{i,i} = -\Delta x ^{-2}
+        \left(\bar{K}^{k-1}_{i+\frac{1}{2}}+\bar{K}^{k-1}_{i-\frac{1}{2}}\right)
+    \,, \quad
+    A_{i,i+1} = \Delta x ^{-2} \bar{K}^{k-1}_{i+\frac{1}{2}}
+    \nonumber
+    \\
+    &
+    B_{i,i-1} = -\Delta x ^{-2} \bar{K}^{k-1}_{i-\frac{1}{2}}
+    \,, \quad
+    B_{i,i} = \Delta x ^{-2} 
+        \left(\bar{K}^{k-1}_{i+\frac{1}{2}}+\bar{K}^{k-1}_{i-\frac{1}{2}}\right)
+    \,, \quad
+    B_{i,i+1} = -\Delta x ^{-2} \bar{K}^{k-1}_{i+\frac{1}{2}}
+    \,,
+    \nonumber
+    \\
+    &
+    a_i = 0
+    \,,
+    \nonumber
+    \\
+    &
+    C_{i,i-1} = \Delta t \frac{F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+    \,, \quad
+    C_{i,i} = -\Delta t 
+    \left[ 
+        \frac{F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2} 
+        - \frac{F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+        - \left(F^{k-1}_{x,i} G^{j-1}_i + F^{k-1}_i G^{j-1}_{x,i}\right)\Delta x
+    \right]
+    \,, 
+    \nonumber
+    \\
+    &
+    C_{i,i+1} = -\Delta t \frac{F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2}
+    \,, \quad
+    D_{i,i-1} = - \frac{1 + \Delta t \, F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+    \,,
+    \nonumber
+    \\
+    &
+    D_{i,i} = \Delta t 
+    \left[ 
+        \frac{F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2} 
+        - \frac{F^{k-1}_{i-\frac{1}{2}} G^{j-1}_{i-\frac{1}{2}}}{2}
+        - \left(F^{k-1}_{x,i} G^{j-1}_i + F^{k-1}_i G^{j-1}_{x,i}\right)\Delta x
+    \right]
+    \,, \quad
+    D_{i,i+1} = \frac{1 + \Delta t \, F^{k-1}_{i+\frac{1}{2}} G^{j-1}_{i+\frac{1}{2}}}{2}
+    \,,
+    \nonumber
+    \\
+    &
+    c_i = \frac{1}{2}\left(w^{k-1,J}_{i+1}-w^{k-1,J}_{i-1}\right)
+    \,,
+    \nonumber
+    \\
+    \text{if } 
+    &i=N:
+    \nonumber
+    \\
+    &
+    A_{N,N} = 1
+    \,,
+    \quad
+    B_{N,N} = 0 
+    \,, \quad
+    a_N = \bar{u}^k_N
+    \,,
+    \nonumber
+    \\
+    &
+    C_{N,N} = 0
+    \,, \quad
+    D_{N,N} = 1
+    \,, \quad
+    c_N = w^{k-1,J}_N \frac{1}{1 + \Delta t F^{k-1}_N} 
+    + \bar{u}^k_N \frac{\Delta t F^{k-1}_N}
+    {1 + \Delta t F^{k-1}_N}
+    \,,
+    \nonumber
+\end{align}
+
+\tg{HERE}
 
 % So eq. \eqref{eq:viscoelastic_1d:momentum:form} is written in the form
 % \begin{align*}
