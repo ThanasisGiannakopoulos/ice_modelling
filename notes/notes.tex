@@ -1180,29 +1180,30 @@ with $n=3$ and $A$ a constant that depends on temperature. The form of eq. \eqre
 \begin{align*}
     \eta(\dot{w}_x) \dot{w}_x = F (u_x-w_x)
 \end{align*}
-which after we replace the viscosity and solve for $\dot{w}_x$
+which after we replace the viscosity and solve for $\dot{w}_x$ (using $\dot{w}_x := \text{sgn}(\dot{w}_x) |\dot{w}_x|$)
 \begin{align}
-    \dot{w}_x = F \left(u_x - w_x \right)^{\frac{2n}{n+1}}
+    \text{sgn}(\dot{w}_x)^n |\dot{w}_x| 
+    = F \left(u_x - w_x \right)^n
     \,,
     \label{eq:viscoelastic_1d:viscosity:form}
     \text{ with }
     F = F(d)
     &
-    = 2 A^{\frac{2}{n+1}} 
-    \left[C_2(\frac{16}{9} + \frac{8}{9 g(d)})\right]^{\frac{2n}{n+1}}
+    = 2^{\frac{1+n}{2}} A 
+    \left[C_2(\frac{16}{9} + \frac{8}{9 g(d)})\right]^n
     \text{ if } u_x - w_x >0
     \,,
     \\
     \text{ or }
     F =F(d)
     &
-    = 2 A^{\frac{2}{n+1}} 
-    \left[C_2(\frac{8}{9} + \frac{16}{9 g(d)})\right]^{\frac{2n}{n+1}}
+    = 2^{\frac{1+n}{2}} A 
+    \left[C_2(\frac{8}{9} + \frac{16}{9 g(d)})\right]^n
     \text{ if } u_x - w_x \leq 0
-    \,,
+    \,.
     \nonumber
 \end{align}
-Here, $A$ is fixed during the simulation, and $g(d)$ are calculated in a timestep $t_k$ from the value of the phase field $d$ of the previous timestep $t_{k-1}$. Also, the degredation function used in the numerical implementation is $g(d) = (1-d)^2 + \kappa$ with $\kappa$ small (e.g. $\kappa = 10^{-6}$), to avoid division by zero in the event of a complete damage.
+We typically use $n=3$ and so the lhs is just $\dot{w}_x$. Here, $A$ is fixed during the simulation, and $g(d)$ are calculated in a timestep $t_k$ from the value of the phase field $d$ of the previous timestep $t_{k-1}$. Also, the degredation function used in the numerical implementation is $g(d) = (1-d)^2 + \kappa$ with $\kappa$ small (e.g. $\kappa = 10^{-6}$), to avoid division by zero in the event of a complete damage.
 
 We want to write eqs. \eqref{eq:viscoelastic_1d:momentum:form} and \eqref{eq:viscoelastic_1d:viscosity:form} in the form $\bb{A} \cdot \bb{U} = \bb{b}$ with $\bb{U}=(\bb{u}^k,\bb{w}^k)^T$ the unkowns at timestep $t_k$ and $\bb{b}$ includes BC for $\bb{U}$. For \eqref{eq:viscoelastic_1d:momentum:form}, integrating over a cell labelled by $i$, with faces at $i \pm 1/2$, we have
 \begin{align*}
@@ -1345,7 +1346,7 @@ For eq. \eqref{eq:viscoelastic_1d:viscosity:form} we have
 \begin{align*}
     \p_t \p_x w 
     & 
-    = F \p_x(u-w) \left(u_x-w_x\right)^{\frac{2n}{n+1}-1}
+    = F \p_x(u-w) \left(u_x-w_x\right)^{n-1}
     = F \p_x(u-w) G
     \\
     \rightarrow
@@ -1411,13 +1412,12 @@ For eq. \eqref{eq:viscoelastic_1d:viscosity:form} we have
     + w_{i-1} \frac{F_{i-\frac{1}{2}} G_{i-\frac{1}{2}}}{2}
     \,,
 \end{align*}
-where we have split $(u_x-w_x)^\frac{2n}{n+1}$ into $\p_x(u-w)G$ with $G:=(u_x-w_x)^{\frac{2n}{n+1}-1}$ which is evaluated within a fixed point iteration $j$ using the solution of the previous iteration $j-1$, and $F=F(d)$ uses $d^{k-1}$ from the previous timestep $t_{k-1}$ for the fixed point iterations on timestep $t_k$. If $n=1$, then we have the linear rheology case and $G=1, G_x=0$, for which $J=1$ for the fixed point solver (no coefficients that depend on $u,w$ in front of $u,w$ unknowns). Formally we have
+where we have split $(u_x-w_x)^n$ into $\p_x(u-w)G$ with $G:=(u_x-w_x)^{n-1}$ which is evaluated within a fixed point iteration $j$ using the solution of the previous iteration $j-1$, and $F=F(d)$ uses $d^{k-1}$ from the previous timestep $t_{k-1}$ for the fixed point iterations on timestep $t_k$. If $n=1$, then we have the linear rheology case and $G=1, G_x=0$, for which $J=1$ for the fixed point solver (no coefficients that depend on $u,w$ in front of $u,w$ unknowns). Formally we have
 \begin{align*}
-    G_x = \left(\frac{2n}{n+1}-1\right) (u_x-w_x)^{\frac{-2}{n+1}} (u_{xx}-w_{xx})
-    = \frac{n-1}{n+1} (u_x-w_x)^{\frac{n-1}{n+1}} \p_x \ln(u_x-w_x)
+    G_x = (n-1)(u_x-w_x)^{n-2} (u_{xx}-w_{xx})
     \,, 
 \end{align*}
-which can formally give divergences if $u_x-w_x = 0$. To avoid that, we calculate $G$ and then $G_x$ numerically, using centred finite difference (FD) operator for first order derivatives (with forward and backward stencils for $i=1,N$, respectively).
+which has no formal divergence for $n=3$ and can be computed using FDs for 1st and 2nd derivatives (it is more accurate this way). We can also calculate $G$ and then $G_x$ numerically, using centred finite difference (FD) operator for first order derivatives (with forward and backward stencils for $i=1,N$, respectively).
 
 Reminder: $f^{k,j}_i$ means scalar variable $f$ at spatial grid point $i \in[0,N]$, timestep $t_k$, and fixed point iteration $j \in [1,J]$. For the implicit Euler step we have that $w^k = w^{k-1} + \Delta t \, \text{rhs}^k$. We use the notation $F^k_i = F(d^k_i)$ since there is only one step to solve for $d$ and not iterations, $G^j_i=G(u^{k,j}_i,w^{k,j}_i)$ and $G_{x,i}$ is the discretized version of $G_x$ after action with the aforementioned FD on $G$. We get the following
 \begin{align*}
@@ -1491,14 +1491,23 @@ Reminder: $f^{k,j}_i$ means scalar variable $f$ at spatial grid point $i \in[0,N
     \,.
 \end{align*}
 
-The previous derivations give the matrix and rhs vector elements for the internal points. For the points $i=0,N$ we need boundary conditions. We apply Dirichlet BC for both $u,w$. For $u$ we prescribe the total displacement at $x=0,L$ which leads to $u^k_{1,N} = \bar{u}^k_{1,N}$, with $\bar{u}$ the prescribed values. For $w$ we start from the viscosity equation $\dot{w}_x = F(u_x-w_x)$, assume a constant $F$ in $x$ to integrate in $x$ and arrive at $\p_t w \sim F (u-w)$, apply the implicit Euler discretization and solve for $w^k$ to obtain
-\begin{align*}
-    w^k_{1,N} = 
-    w^{k-1}_{1,N} \frac{1}{1 + \Delta t F^{k-1}_{1,N}} 
-    + \bar{u}^k_{1,N} \frac{\Delta t F^{k-1}_{1,N}}
-    {1 + \Delta t F^{k-1}_{1,N}}
-    \,.
-\end{align*}
+\tg{HERE}
+
+The previous derivations give the matrix and rhs vector elements for the internal points. For the points $i=0,N$ we need boundary conditions. We apply Dirichlet BC for both $u$ and Neumann for $w$ (i.e. prescribe $w_x$ at $x=0,L$).
+
+\tg{TODO: for Neumann on $w$, discretize in $t_k$ and fixed point iterations $j$ the viscosity eq., and do one of the two following: either assume forward and backward FD stencils and build the matrix and rhs with this (it misses flux contro), or (more calculations), find the values of $w_{0,N}, u_{0,N}$ from the already discretized viscosity eq. for internal points, then assume a centred FD and replace the values of the ghost points (in terms of internal points). Same logic as in phase field, just more work; the positive is that this way the BC knows of flux control (I think).}
+
+% % Dirichlet for w is not a good choice; do Neumann
+% %
+% We apply Dirichlet BC for both $u,w$. For $u$ we prescribe the total displacement at $x=0,L$ which leads to $u^k_{1,N} = \bar{u}^k_{1,N}$, with $\bar{u}$ the prescribed values. For $w$ we start from the viscosity equation $\dot{w}_x = F(u_x-w_x)$, assume a constant $F$ in $x$ to integrate in $x$ and arrive at $\p_t w \sim F (u-w)$, apply the implicit Euler discretization and solve for $w^k$ to obtain
+% \begin{align*}
+%     w^k_{1,N} = 
+%     w^{k-1}_{1,N} \frac{1}{1 + \Delta t F^{k-1}_{1,N}} 
+%     + \bar{u}^k_{1,N} \frac{\Delta t F^{k-1}_{1,N}}
+%     {1 + \Delta t F^{k-1}_{1,N}}
+%     \,.
+% \end{align*}
+
 So the resulting discretized finite volume and implicit Euler scheme for eqs. \eqref{eq:viscoelastic_1d:momentum:form}, \eqref{eq:viscoelastic_1d:viscosity:form} is
 \begin{align}
     \begin{pmatrix}
@@ -1637,6 +1646,53 @@ with
     \,,
     \nonumber
 \end{align}
+
+For the phase field we start from 
+\begin{align*}
+    d - l^2 \p_x^2 d = 2 \, C_3 \, l (1-d) \mathcal{H}
+    \,, 
+\end{align*}
+follow the same process as in the elastic 1d bar and obtain the following discrete version using finite volume and centred FD operators:
+\begin{align*}
+    - \frac{l^2}{\Delta x^2} d_{i-1} 
+    + \left(1 + \frac{2 l^2}{\Delta x^2} + 2 C_3 l \mathcal{H}_i \right) d_i
+    - \frac{l^2}{\Delta x^2} d_{i+1}
+    = 2 C_3 l \mathcal{H}_i
+    \,,
+\end{align*}
+that when written in the format $\bb{M} \cdot \bb{d} = \bb{f}$ give the following elements for the interior point:
+\begin{align*}
+    M_{i,i-1} = M_{i,i+1} = -\frac{l^2}{\Delta x^2}
+    \,, \quad
+    M_{i,i} = 1 + \frac{2 l^2}{\Delta x^2} + 2 C_3 l \mathcal{H}_i
+    \,, \quad
+    f_{i} = 2 C_3 l \mathcal{H}_i
+    \,.
+\end{align*}
+For the natural Neumann boundary conditons of $d$ (i.e. $d_x=0|_{x=0,L}$) we again use centred FD at $i=1,N$ i.e.
+\begin{align*}
+    \frac{d_2 - d_0}{2\Delta x} = 0
+    \,, \quad
+    \frac{d_{N+1} - d_{N-1}}{2\Delta x} = 0
+    \,,
+\end{align*}
+with fictitious ghost points that are populated with the above implementation 
+\begin{align*}
+    M_{1,1} = 1 + \frac{l^2}{\Delta x^2} + 2 C_3 l \mathcal{H}_1
+    \,, \quad
+    M_{1,2} = - \frac{2 l^2}{\Delta x^2}
+    \,, \quad
+    f_1 = 2 C_3 l \mathcal{H}_1
+    \,,
+    \\
+    M_{N,N} = 1 + \frac{l^2}{\Delta x^2} + 2 C_3 l \mathcal{H}_N
+    \,, \quad
+    M_{N,N-1} = - \frac{2 l^2}{\Delta x^2}
+    \,, \quad
+    f_N = 2 C_3 l \mathcal{H}_N
+    \,,
+\end{align*}
+where we have assumed that $\mathcal{H}_0=\mathcal{H}_1$ and $\mathcal{H}_{N+1}=\mathcal{H}_N$.
 
 \tg{HERE}
 
