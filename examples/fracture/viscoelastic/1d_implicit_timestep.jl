@@ -1,0 +1,400 @@
+using Serialization
+using LinearAlgebra
+
+# ============================================================
+# Parameters
+# ============================================================
+
+Base.@kwdef struct Params
+    # geometry
+    L::Float64 = 1.0
+    N::Int = 512 # needs even number, with odd the matrix has 0 det, dnt know why?!
+    dx::Float64 = L/(N-1)
+
+    # time
+    T::Int = 2000
+    dt::Float64 = 1e-2
+
+    # phase field
+    l::Float64 = 0.1
+    kappa::Float64 = 1e-6
+
+    # material
+    ν::Float64 = 0.3
+    A::Float64 = 1.0
+    n::Int = 3
+    C2::Float64 = 1.0
+    C3::Float64 = 1.0
+
+    # numerics
+    tol::Float64 = 1e-6
+    max_iter::Int = 100
+
+    # critical energy for damage
+    psi_crit::Float64 = 0.0#1e-2
+
+    savefile::String = "viscoelastic_1d.jls"
+end
+
+# ============================================================
+# Material properties
+# ============================================================
+
+# Young's modules tuned by Poisson ratio ν to satisfy mass balance
+E(p) = 2*(1+p.ν)^2/(1-p.ν)
+
+# Lame Parameters
+λ(p) = E(p)*p.ν / ((1+p.ν)*(1-2p.ν))
+μ(p) = E(p)/(2*(1+p.ν))
+
+
+# ============================================================
+# Utilities
+# ============================================================
+
+# Gaussian
+function gaussian(x, x0, width, amp)
+    return amp * exp.(-(x.-x0).^2 ./ (2*width^2))
+end
+
+# ⟨x⟩_+
+positive(x) = 0.5 * (x + abs(x))
+
+# centred FD with forward/backward on ends
+function DfDx(f::Vector, p::Params)
+    N = p.N
+    dx = p.dx
+    fx = zeros(N)
+    fx[1] = (f[2]-f[1])/dx
+    for i in 2:N-1
+        fx[i] = (f[i+1]-f[i-1])/(2dx)
+    end
+    fx[N] = (f[N]-f[N-1])/dx
+    return fx
+end
+
+# centred FD with forward/backward on ends
+function DfDxx(f::Vector, p::Params)
+    N = p.N
+    dx = p.dx
+    idx = 1/dx
+    fxx = zeros(N)
+    fxx[1] = (2*f[1]-5*f[2]+4*f[3]-f[4])*idx^2
+    for i in 2:N-1
+        fxx[i] = (f[i+1]-2*f[i]+f[i-1])*idx^2
+    end
+    fxx[N] = (2*f[N]-5*f[N-1]+4*f[N-2]-f[N-3])*idx^2
+    return fxx
+end
+
+# midpoint
+# stagav(f)_[i]=f_{i+1/2}, stagav(f)_[i-1]=f_{i-1/2} 
+stagav(f) = 0.5 .* (f[1:end-1] .+ f[2:end])
+
+# degradation function
+g(d,p) = (1 .- d).^2 .+ p.kappa
+
+# ============================================================
+# Effective stiffness K̄(d, a_x), 
+# with a_x = u_x - w_x (elastic displacement)
+# ============================================================
+
+function Kbar(ax, d, p)
+    K0 = λ(p)/2 + μ(p)/3 + 4/3
+    gval = g(d,p)
+    K = similar(ax)
+    for i in eachindex(ax)
+        if ax[i] > 0
+            K[i] = 2*gval[i]*K0
+        else
+            K[i] = 2*K0
+        end
+    end
+    return K
+end
+
+# ============================================================
+# Glen viscosity coefficients
+# ============================================================
+
+function Fcoef(ax, d, p)
+    gval = g(d,p)
+    n = p.n
+    A = p.A
+    C2 = p.C2
+    F = similar(d)
+    for i in eachindex(d)
+        if ax[i] > 0
+            F[i] = 2^((1+n)/2)*A*
+                   (C2*(16/9 + 8/(9*gval[i])))^n
+        else
+            F[i] = 2^((1+n)/2)*A*
+                   (C2*(8/9 + 16/(9*gval[i])))^n
+        end
+    end
+    return F
+end
+
+function Gcoef(ax, p)
+    n = p.n
+    return ax.^(n-1)
+end
+
+# ============================================================
+# Coupled (u,w) solver for one timestep
+# ============================================================
+
+function solve_uw_step(u_old, w_old, d, ubarL, ubarR, p::Params)
+    N  = p.N
+    dx = p.dx
+    idx = 1/dx
+    dt = p.dt
+    n = p.n
+
+    u = copy(u_old)
+    w = copy(w_old)
+
+    res = 0.0
+    ii = 0
+    for iter in 1:p.max_iter
+        ii +=1
+        # elastic strain
+        a = u .- w
+        ax = DfDx(a,p)
+
+        # coefficients
+        K = Kbar(ax,d,p)
+        Kmid = stagav(K)
+
+        F = Fcoef(ax,d,p)
+        G = Gcoef(ax,p)
+        Fmid = stagav(F)
+        Gmid = stagav(G)
+        Fx = DfDx(F, p)
+        #Gx = DfDx(G, p)
+        Gx = (n-1)*ax.^(n-2) .*DfDxx(a,p)
+
+        # --------------------------------------------------
+        # Allocate blocks
+        # --------------------------------------------------
+        A = zeros(N,N)
+        B = zeros(N,N)
+        C = zeros(N,N)
+        D = zeros(N,N)
+
+        a = zeros(N)
+        c = zeros(N)
+
+        # --------------------------------------------------
+        # Boundary conditions (u)
+        # --------------------------------------------------
+        A[1,1] = 1.0
+        a[1]   = ubarL
+
+        A[N,N] = 1.0
+        a[N]   = ubarR
+
+        # --------------------------------------------------
+        # Boundary conditions (w)
+        # --------------------------------------------------
+        D[1,1] = 1.0
+        #c[1]   = w_old[1]/(1+dt*F[1]) + ubarL*dt*F[1]/(1+dt*F[1])
+        c[1] = 0.0#w_old[1] + dt*F[1]*G[1]*(u[1]-w[1])
+
+        D[N,N] = 1.0
+        D[N,N-1] = -1.0
+        #c[N]   = w_old[end]/(1+dt*F[end]) + ubarR*dt*F[end]/(1+dt*F[end])
+        c[N] = 0.0#w_old[N] + dt*F[N]*G[N]*(u[N]-w[N])
+
+        # --------------------------------------------------
+        # Interior nodes
+        # --------------------------------------------------
+        for i in 2:N-1
+            im = i-1
+            ip = i+1
+
+            # m=minus=i-1/2, p=plus=i+1/2
+            km = Kmid[i-1]
+            kp = Kmid[i]
+            Fm = Fmid[i-1]
+            Fp = Fmid[i]
+            Gm = Gmid[i-1]
+            Gp = Gmid[i]
+
+            # ===== Momentum equation =====
+            A[i,im] =  km#*idx^2
+            A[i,i]  = -(km+kp)#*idx^2
+            A[i,ip] =  kp#*idx^2
+
+            B[i,im] = -km#*idx^2
+            B[i,i]  =  (km+kp)#*idx^2
+            B[i,ip] = -kp#*idx^2
+
+            # ===== Viscosity equation =====
+            C[i,im] =  0.5*dt*Fm*Gm
+            C[i,i]  = -dt*(0.5*Fp*Gp-0.5*Fm*Gm-dx*(Fx[i]*G[i]+F[i]*Gx[i]))
+            C[i,ip] = -0.5*dt*Fp*Gp
+
+            D[i,im] = -0.5*(1 + dt*Fm*Gm)
+            D[i,i]  = -dt*(0.5*Fp*Gp-0.5*Fm*Gm-dx*(Fx[i]*G[i]+F[i]*Gx[i]))
+            D[i,ip] =  0.5*(1 + dt*Fp*Gp)
+
+            # RHS
+            c[i] = (w_old[ip] - w_old[im]) / 2
+        end
+
+        # --------------------------------------------------
+        # Assemble full system
+        # --------------------------------------------------
+        M = [A  B;
+             C  D]
+
+        rhs = [a; c]
+
+        sol = M \ rhs
+
+        u_new = sol[1:N]
+        w_new = sol[N+1:end]
+
+        res = maximum(abs.(u_new-u)) + maximum(abs.(w_new-w))
+        #println("   Iteration $iter: max(d) = ", maximum(d))
+        u .= u_new
+        w .= w_new
+
+        if res < p.tol
+            break
+        end
+    end
+    # println("   res = $res | max(d) =  $(maximum(d)) | iter =  $iter")
+    println("   res = $(round(res, sigdigits=4)) | max(d) = $(round(maximum(d), digits=4)) | iter = $ii")
+
+
+    return u, w
+end
+
+
+# ============================================================
+# Phase-field history
+# ============================================================
+
+# get history from elastic displacement
+function update_history!(H, u, w, p::Params)
+    ax = DfDx(u,p) .- DfDx(w,p)
+
+    for i in eachindex(ax)
+        # compute psi^+ depending on sign of ax
+        if ax[i] > 0
+            psi_plus = ax[i]^2 * (λ(p)/2 + 19*μ(p)/9)
+        else
+            psi_plus = ax[i]^2 * (8*μ(p)/9)
+        end
+        # use ⟨.⟩_+
+        H[i] = max(H[i], positive(psi_plus - p.psi_crit))
+    end
+end
+
+# get history from d; for initial data
+function compute_H_from_d(d::Vector, p::Params)
+    N = p.N
+    l = p.l
+    dx = p.dx
+    C3 = p.C3
+
+    return abs.(d .- l^2 .*DfDxx(d,p))./(2*C3*l*(1 .- d .+ p.kappa))
+end
+# ============================================================
+# Phase-field solver
+# ============================================================
+
+function solve_phasefield(H, p::Params)
+    N = p.N
+    dx = p.dx
+    l = p.l
+    C3 = p.C3
+
+    M = zeros(N,N)
+    f = zeros(N)
+
+    # Interior points
+    for i in 2:N-1
+        M[i, i-1] = -l^2 / dx^2
+        M[i, i]   = 1 + 2*l^2/dx^2 + 2*C3*l*H[i]
+        M[i, i+1] = -l^2 / dx^2
+        f[i]      = 2*C3*l*H[i]
+    end
+
+    # Neumann BC at i=1 (ghost node)
+    M[1,1] = 1 + l^2/dx^2 + 2*C3*l*H[1]
+    M[1,2] = -2*l^2/dx^2
+    f[1]   = 2*C3*l*H[1]
+
+    # Neumann BC at i=N (ghost node)
+    M[N,N]   = 1 + l^2/dx^2 + 2*C3*l*H[N]
+    M[N,N-1] = -2*l^2/dx^2
+    f[N]     = 2*C3*l*H[N]
+
+    # Solve
+    d_new = M \ f
+
+    return d_new
+end
+
+
+# ---------------------------
+# Time dependent BC
+# ---------------------------
+function ubar(t, p::Params)
+    # Example: ramp displacement
+    return (0, 0.1*abs(sin(t)))   # (ubarL, ubarR)
+end
+
+
+# ============================================================
+# Main time loop
+# ============================================================
+
+function run_simulation(p::Params)
+    x = range(0,p.L,p.N)
+
+    u = zeros(p.N)
+    w = zeros(p.N)
+    d = 0.1*gaussian(x, p.L/2, 0.005, 0.2)#0.01*rand(p.N)
+    H = zeros(p.N)
+    # initial history from initial damage
+    H = compute_H_from_d(d, p)
+
+    u_hist = zeros(p.N,p.T)
+    w_hist = zeros(p.N,p.T)
+    d_hist = zeros(p.N,p.T)
+    H_hist = zeros(p.N,p.T)
+
+    u_hist[:,1] = u
+    w_hist[:,1] = w
+    d_hist[:,1] = d
+    H_hist[:,1] = H
+
+    for k in 2:p.T
+        # BC for total displacement
+        t = (k-1)*p.dt
+        println("Time step $k / $(p.T) | t = $(round(t, digits=4))")
+        ubarL, ubarR = ubar(t, p)
+
+        u, w = solve_uw_step(u,w,d,ubarL,ubarR,p)
+        update_history!(H,u,w,p)
+        d = solve_phasefield(H,p)
+
+        u_hist[:,k] = u
+        w_hist[:,k] = w
+        d_hist[:,k] = d
+        H_hist[:,k] = H
+    end
+
+    serialize(p.savefile,(x,u_hist,w_hist,d_hist,H_hist))
+end
+
+# ============================================================
+# Run
+# ============================================================
+
+p = Params()
+run_simulation(p)
