@@ -328,12 +328,12 @@ function solve_phasefield(H, p::Params)
     end
 
     # Neumann BC at i=1 (ghost node)
-    M[1,1] = 1 + l^2/dx^2 + 2*C3*l*H[1]
+    M[1,1] = 1 + 2*l^2/dx^2 + 2*C3*l*H[1]
     M[1,2] = -2*l^2/dx^2
     f[1]   = 2*C3*l*H[1]
 
     # Neumann BC at i=N (ghost node)
-    M[N,N]   = 1 + l^2/dx^2 + 2*C3*l*H[N]
+    M[N,N]   = 1 + 2*l^2/dx^2 + 2*C3*l*H[N]
     M[N,N-1] = -2*l^2/dx^2
     f[N]     = 2*C3*l*H[N]
 
