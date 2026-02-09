@@ -8,27 +8,27 @@ using LinearAlgebra
 Base.@kwdef struct Params
     # geometry
     L::Float64 = 1.0
-    N::Int = 512 # needs even number, with odd the matrix has 0 det, dnt know why?!
+    N::Int = 256 
     dx::Float64 = L/(N-1)
 
     # time
-    T::Int = 2000
-    dt::Float64 = 1e-2
+    T::Int = 40
+    dt::Float64 = 1e-1
 
     # phase field
-    l::Float64 = 0.1
+    l::Float64 = 0.01
     kappa::Float64 = 1e-6
 
     # material
     ν::Float64 = 0.3
     A::Float64 = 1.0
     n::Int = 3
-    C2::Float64 = 1.0
-    C3::Float64 = 1.0
+    C2::Float64 = 1.0#0.25
+    C3::Float64 = 10.0
 
     # numerics
     tol::Float64 = 1e-6
-    max_iter::Int = 100
+    max_iter::Int = 20
 
     # critical energy for damage
     psi_crit::Float64 = 0.0#1e-2
@@ -144,7 +144,7 @@ end
 # Coupled (u,w) solver for one timestep
 # ============================================================
 
-function solve_uw_step(u_old, w_old, d, ubarL, ubarR, p::Params)
+function solve_uw_step(u_old, w_old, d, T, p::Params)
     N  = p.N
     dx = p.dx
     idx = 1/dx
@@ -189,22 +189,26 @@ function solve_uw_step(u_old, w_old, d, ubarL, ubarR, p::Params)
         # Boundary conditions (u)
         # --------------------------------------------------
         A[1,1] = 1.0
-        a[1]   = ubarL
+        a[1]   = 0.0
 
-        A[N,N] = 1.0
-        a[N]   = ubarR
+        # to prescribe traction T
+        A[N,N] = 1.0*idx
+        A[N,N-1] = -1.0*idx
+        B[N,N] = -1.0*idx
+        B[N,N-1] = 1.0*idx
+        a[N]   = T/K[N]
 
         # --------------------------------------------------
         # Boundary conditions (w)
         # --------------------------------------------------
+        # Dirichlet on left end; acts as gauge fixing since we evolve w_x
         D[1,1] = 1.0
-        #c[1]   = w_old[1]/(1+dt*F[1]) + ubarL*dt*F[1]/(1+dt*F[1])
-        c[1] = 0.0#w_old[1] + dt*F[1]*G[1]*(u[1]-w[1])
+        c[1] = 0.0
 
-        D[N,N] = 1.0
-        D[N,N-1] = -1.0
-        #c[N]   = w_old[end]/(1+dt*F[end]) + ubarR*dt*F[end]/(1+dt*F[end])
-        c[N] = 0.0#w_old[N] + dt*F[N]*G[N]*(u[N]-w[N])
+        # Neuman with backward FD on right end
+        D[N,N] = 1.0*idx
+        D[N,N-1] = -1.0*idx
+        c[N] = (w_old[N] - w_old[N-1])/dx + dt*F[N]*(T/K[N])^3#dt*F[N]*G[N]*(T/K[N])
 
         # --------------------------------------------------
         # Interior nodes
@@ -333,6 +337,10 @@ function solve_phasefield(H, p::Params)
     M[N,N-1] = -2*l^2/dx^2
     f[N]     = 2*C3*l*H[N]
 
+    # M[1,1] = -1.0/dx
+    # M[1,2] = 1/0/dx
+    # M[N,N] = 1.0/dx
+    # M[N,N-1] = -1.0/dx
     # Solve
     d_new = M \ f
 
@@ -343,9 +351,8 @@ end
 # ---------------------------
 # Time dependent BC
 # ---------------------------
-function ubar(t, p::Params)
-    # Example: ramp displacement
-    return (0, 0.1*abs(sin(t)))   # (ubarL, ubarR)
+function traction(t, p::Params)
+    return 0.5*t#0.1*abs(sin(t)))
 end
 
 
@@ -377,9 +384,9 @@ function run_simulation(p::Params)
         # BC for total displacement
         t = (k-1)*p.dt
         println("Time step $k / $(p.T) | t = $(round(t, digits=4))")
-        ubarL, ubarR = ubar(t, p)
+        T = traction(t, p)
 
-        u, w = solve_uw_step(u,w,d,ubarL,ubarR,p)
+        u, w = solve_uw_step(u,w,d,T,p)
         update_history!(H,u,w,p)
         d = solve_phasefield(H,p)
 

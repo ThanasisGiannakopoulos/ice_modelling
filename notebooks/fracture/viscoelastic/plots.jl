@@ -16,14 +16,17 @@ macro bind(def, element)
     #! format: on
 end
 
-# ╔═╡ 1e923c56-19ed-49b2-a89c-b3da7f2d71be
+# ╔═╡ a202592b-870c-4bba-8b03-4ee447b7f968
 begin
 	using Serialization
-	
-	(x, u_all, w_all, d_all, H_all) = deserialize("../../../examples/fracture/viscoelastic/viscoelastic_1d.jls")
+
+	x, u_all, w_all, d_all, H_all =
+    deserialize("../../../examples/fracture/viscoelastic/viscoelastic_1d.jls")
+
 	niter = size(d_all, 2)
-	
+
 end
+
 
 # ╔═╡ 3b8da612-ccc9-4684-afb1-e7612dce88b5
 begin
@@ -50,6 +53,192 @@ begin
 	
 end
 
+# ╔═╡ b1c775c5-3d4f-4cd6-a580-4648b4e0f9c4
+Base.@kwdef struct Params
+    # geometry
+    L::Float64 = 1.0
+    N::Int = 256
+    dx::Float64 = L/(N-1)
+
+    # time
+    T::Int = 1000
+    dt::Float64 = 1e-2
+
+    # phase field
+    l::Float64 = 0.01
+    kappa::Float64 = 1e-6
+
+    # material
+    ν::Float64 = 0.3
+    A::Float64 = 1.0
+    n::Int = 3
+    C2::Float64 = 0.25
+    C3::Float64 = 1.0
+
+    # numerics
+    tol::Float64 = 1e-6
+    max_iter::Int = 20
+
+    # critical energy
+    psi_crit::Float64 = 0.0
+
+    savefile::String = "viscoelastic_1d.jls"
+end
+
+
+# ╔═╡ 407625b9-ca52-4e60-b3d1-c0578357ff44
+p = Params()
+
+# ╔═╡ 0bc6927e-0ada-4430-b6b2-330c3b6f9add
+begin
+# ============================================================
+# Material properties
+# ============================================================
+
+# Young's modules tuned by Poisson ratio ν to satisfy mass balance
+E(p) = 2*(1+p.ν)^2/(1-p.ν)
+
+# Lame Parameters
+λ(p) = E(p)*p.ν / ((1+p.ν)*(1-2p.ν))
+μ(p) = E(p)/(2*(1+p.ν))
+
+# centred FD with forward/backward on ends
+function DfDx(f::Vector, p::Params)
+    N = p.N
+    dx = p.dx
+    fx = zeros(N)
+    fx[1] = (f[2]-f[1])/dx
+    for i in 2:N-1
+        fx[i] = (f[i+1]-f[i-1])/(2dx)
+    end
+    fx[N] = (f[N]-f[N-1])/dx
+    return fx
+end
+
+# centred FD with forward/backward on ends
+function DfDxx(f::Vector, p::Params)
+    N = p.N
+    dx = p.dx
+    idx = 1/dx
+    fxx = zeros(N)
+    fxx[1] = (2*f[1]-5*f[2]+4*f[3]-f[4])*idx^2
+    for i in 2:N-1
+        fxx[i] = (f[i+1]-2*f[i]+f[i-1])*idx^2
+    end
+    fxx[N] = (2*f[N]-5*f[N-1]+4*f[N-2]-f[N-3])*idx^2
+    return fxx
+end
+
+# midpoint
+# stagav(f)_[i]=f_{i+1/2}, stagav(f)_[i-1]=f_{i-1/2} 
+stagav(f) = 0.5 .* (f[1:end-1] .+ f[2:end])
+
+# degradation function
+g(d,p) = (1 .- d).^2 .+ p.kappa
+
+# ============================================================
+# Effective stiffness K̄(d, a_x), 
+# with a_x = u_x - w_x (elastic displacement)
+# ============================================================
+
+function Kbar(ax, d, p)
+    K0 = λ(p)/2 + μ(p)/3 + 4/3
+    gval = g(d,p)
+    K = similar(ax)
+    for i in eachindex(d)
+        if ax[i] > 0
+            K[i] = 2*gval[i]*K0
+        else
+            K[i] = 2*K0
+        end
+    end
+    return K
+end
+
+# ============================================================
+# Glen viscosity coefficients
+# ============================================================
+
+function Fcoef(ax, d, p)
+    gval = g(d,p)
+    n = p.n
+    A = p.A
+    C2 = p.C2
+    F = similar(d)
+    for i in eachindex(d)
+        if ax[i] > 0
+            F[i] = 2^((1+n)/2)*A*
+                   (C2*(16/9 + 8/(9*gval[i])))^n
+        else
+            F[i] = 2^((1+n)/2)*A*
+                   (C2*(8/9 + 16/(9*gval[i])))^n
+        end
+    end
+    return F
+end
+
+function Gcoef(ax, p)
+    n = p.n
+    return ax.^(n-1)
+end
+
+	function res_eq1(u,w,d,p)
+    a = u .- w
+    ax = DfDx(a,p)
+    K = Kbar(ax,d,p)
+    res = DfDx(K.*ax,p)
+    return res
+end
+
+function res_eq2(u,w,wdot,d,p)
+    a = u .- w
+    ax = DfDx(a,p)
+    F = Fcoef(ax,d,p)
+    wdotx = DfDx(wdot,p)
+    res = wdotx .- F.*ax.^p.n
+    return res
+end
+
+function res_d(d, H, p)
+    dxx = DfDxx(d,p)
+    res = d .- p.l^2*dxx - 2*p.C3*p.l*(1.0 .- d) .* H
+    return res
+end
+	
+end
+
+# ╔═╡ 12b6baf3-5404-4330-be3e-441d597c5100
+# ╠═╡ disabled = true
+#=╠═╡
+res1 = res_eq1(u_all[:,end], w_all[:,end], d_all[:,end], p)
+
+  ╠═╡ =#
+
+# ╔═╡ abcba8ad-2712-4131-8dd6-e8280dc4bad7
+@bind iter2 Slider(2:niter, default=1)
+
+
+# ╔═╡ d6138b06-5a4f-42e9-a83f-f6b7dcf5fff3
+begin
+
+	plot(
+	    layout = (3, 1),
+	    size = (800, 600),
+	    legend = false
+	)
+
+	res1 = res_eq1(u_all[:,iter2], w_all[:,iter2], d_all[:,iter2], p)
+	wdot = (w_all[:,iter2] .- w_all[:,iter2-1])/p.dt;
+	res2 = res_eq2(u_all[:,iter2], w_all[:,iter2],
+				   wdot[:], d_all[:,iter2], p)
+	resd = res_d(d_all[:,iter2], H_all[:,iter2], p)
+	
+	plot!(x, res1, subplot=1, title="res1 (Iter $iter2)")
+	plot!(x, res2, subplot=2, title="res2 (Iter $iter2)")
+	plot!(x, resd, subplot=3, title="resd (Iter $iter2)")
+	
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -58,8 +247,8 @@ PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
 [compat]
-Plots = "~1.41.1"
-PlutoUI = "~0.7.78"
+Plots = "~1.41.5"
+PlutoUI = "~0.7.79"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -68,7 +257,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "be36399ee3339e4122eb3fd6883bf850ecb3f9c8"
+project_hash = "473351d1190b26355f445d15b5b5b9507f24dfd7"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -276,21 +465,21 @@ version = "3.4.1+0"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Preferences", "Printf", "Qt6Wayland_jll", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "p7zip_jll"]
-git-tree-sha1 = "f305bdb91e1f3fcc687944c97f2ede40585b1bd5"
+git-tree-sha1 = "ee0585b62671ce88e48d3409733230b401c9775c"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.73.19"
+version = "0.73.22"
 
     [deps.GR.extensions]
-    GRIJuliaExt = "IJulia"
+    IJuliaExt = "IJulia"
 
     [deps.GR.weakdeps]
     IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "FreeType2_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt6Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "de439fbc02b9dc0e639e67d7c5bd5811ff3b6f06"
+git-tree-sha1 = "7dd7173f7129a1b6f84e0f03e0890cd1189b0659"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.73.19+1"
+version = "0.73.22+0"
 
 [[deps.GettextRuntime_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll"]
@@ -306,9 +495,9 @@ version = "9.55.1+0"
 
 [[deps.Glib_jll]]
 deps = ["Artifacts", "GettextRuntime_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE2_jll", "Zlib_jll"]
-git-tree-sha1 = "6b4d2dc81736fe3980ff0e8879a9fc7c33c44ddf"
+git-tree-sha1 = "24f6def62397474a297bfcec22384101609142ed"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
-version = "2.86.2+0"
+version = "2.86.3+0"
 
 [[deps.Graphite2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -341,9 +530,9 @@ version = "0.0.5"
 
 [[deps.HypertextLiteral]]
 deps = ["Tricks"]
-git-tree-sha1 = "7134810b1afce04bbc1045ca1985fbe81ce17653"
+git-tree-sha1 = "d1a86724f81bcd184a38fd284ce183ec067d71a0"
 uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-version = "0.9.5"
+version = "1.0.0"
 
 [[deps.IOCapture]]
 deps = ["Logging", "Random"]
@@ -375,9 +564,9 @@ version = "1.7.1"
 
 [[deps.JSON]]
 deps = ["Dates", "Logging", "Parsers", "PrecompileTools", "StructUtils", "UUIDs", "Unicode"]
-git-tree-sha1 = "5b6bb73f555bc753a6153deec3717b8904f5551c"
+git-tree-sha1 = "b3ad4a0255688dcb895a52fafbaae3023b588a90"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-version = "1.3.0"
+version = "1.4.0"
 
     [deps.JSON.extensions]
     JSONArrowExt = ["ArrowTypes"]
@@ -492,9 +681,9 @@ version = "1.18.0+0"
 
 [[deps.Libmount_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "3acf07f130a76f87c041cfb2ff7d7284ca67b072"
+git-tree-sha1 = "97bbca976196f2a1eb9607131cb108c69ec3f8a6"
 uuid = "4b2f31a3-9ecc-558c-b454-b3730dcb73e9"
-version = "2.41.2+0"
+version = "2.41.3+0"
 
 [[deps.Libtiff_jll]]
 deps = ["Artifacts", "JLLWrappers", "JpegTurbo_jll", "LERC_jll", "Libdl", "XZ_jll", "Zlib_jll", "Zstd_jll"]
@@ -504,9 +693,9 @@ version = "4.7.2+0"
 
 [[deps.Libuuid_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "2a7a12fc0a4e7fb773450d17975322aa77142106"
+git-tree-sha1 = "d0205286d9eceadc518742860bf23f703779a3d6"
 uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
-version = "2.41.2+0"
+version = "2.41.3+0"
 
 [[deps.LinearAlgebra]]
 deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
@@ -624,9 +813,9 @@ version = "3.5.4+0"
 
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "39a11854f0cba27aa41efaedf43c77c5daa6be51"
+git-tree-sha1 = "e2bb57a313a74b8104064b7efd01406c0a50d2ff"
 uuid = "91d4177d-7536-5919-b921-800302f37372"
-version = "1.6.0+0"
+version = "1.6.1+0"
 
 [[deps.OrderedCollections]]
 git-tree-sha1 = "05868e21324cede2207c6f0f466b4bfef6d5e7ee"
@@ -679,9 +868,9 @@ version = "1.4.4"
 
 [[deps.Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "TOML", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "12ce661880f8e309569074a61d3767e5756a199f"
+git-tree-sha1 = "1cc8ad0762e59e713ee3ef28f9b78b2c9f4ca078"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.41.1"
+version = "1.41.5"
 
     [deps.Plots.extensions]
     FileIOExt = "FileIO"
@@ -699,9 +888,9 @@ version = "1.41.1"
 
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Downloads", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
-git-tree-sha1 = "6122f9423393a2294e26a4efdf44960c5f8acb70"
+git-tree-sha1 = "3ac7038a98ef6977d44adeadc73cc6f596c08109"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.78"
+version = "0.7.79"
 
 [[deps.PrecompileTools]]
 deps = ["Preferences"]
@@ -858,9 +1047,9 @@ version = "0.34.10"
 
 [[deps.StructUtils]]
 deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "79529b493a44927dd5b13dde1c7ce957c2d049e4"
+git-tree-sha1 = "9297459be9e338e546f5c4bedb59b3b5674da7f1"
 uuid = "ec057cc2-7a8d-4b58-b3b3-92acb9f63b42"
-version = "2.6.0"
+version = "2.6.2"
 
     [deps.StructUtils.extensions]
     StructUtilsMeasurementsExt = ["Measurements"]
@@ -1203,8 +1392,14 @@ version = "1.13.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╠═1e923c56-19ed-49b2-a89c-b3da7f2d71be
+# ╠═a202592b-870c-4bba-8b03-4ee447b7f968
 # ╠═3b8da612-ccc9-4684-afb1-e7612dce88b5
 # ╠═40ba9d34-e05d-46a4-b549-178362009b20
+# ╠═b1c775c5-3d4f-4cd6-a580-4648b4e0f9c4
+# ╠═407625b9-ca52-4e60-b3d1-c0578357ff44
+# ╠═0bc6927e-0ada-4430-b6b2-330c3b6f9add
+# ╠═12b6baf3-5404-4330-be3e-441d597c5100
+# ╠═abcba8ad-2712-4131-8dd6-e8280dc4bad7
+# ╠═d6138b06-5a4f-42e9-a83f-f6b7dcf5fff3
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
