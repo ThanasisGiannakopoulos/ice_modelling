@@ -7,31 +7,35 @@ using LinearAlgebra
 
 Base.@kwdef struct Params
     # geometry
-    L::Float64 = 1.0
-    N::Int = 256 
+    L::Float64 = 10.0
+    N::Int = 512
     dx::Float64 = L/(N-1)
 
     # time
-    T::Int = 40
-    dt::Float64 = 1e-1
+    NT::Int = 2*163#808
+    dt::Float64 = 1e-1*0.5*0.5
 
     # phase field
-    l::Float64 = 0.01
+    l::Float64 = 0.1
     kappa::Float64 = 1e-6
 
     # material
-    ν::Float64 = 0.3
-    A::Float64 = 1.0
+    ν::Float64 = 0.325
+    A::Float64 = 1e-2 #1.2*1e-25
     n::Int = 3
-    C2::Float64 = 1.0#0.25
-    C3::Float64 = 10.0
+    #C2::Float64 = 11.82#0.25
+    #C3::Float64 = 3520.75
+    char_length::Float64 = 1e-1
+    char_displ::Float64 = 1e-1
+    Gc::Float64 = 0.6
+    tau::Float64 = 1e-1*4
 
     # numerics
-    tol::Float64 = 1e-6
+    tol::Float64 = 1e-9
     max_iter::Int = 20
 
     # critical energy for damage
-    psi_crit::Float64 = 0.0#1e-2
+    psi_crit::Float64 = 0.01#1e-2
 
     savefile::String = "viscoelastic_1d.jls"
 end
@@ -47,6 +51,9 @@ E(p) = 2*(1+p.ν)^2/(1-p.ν)
 λ(p) = E(p)*p.ν / ((1+p.ν)*(1-2p.ν))
 μ(p) = E(p)/(2*(1+p.ν))
 
+# model's dimless constants
+CC2(p) = p.A^(1/p.n)*(p.char_displ/p.char_length)^(1-1/p.n)*μ(p)*p.tau^(1/p.n)
+CC3(p) = μ(p)*p.char_displ^2/(p.Gc*p.char_length)
 
 # ============================================================
 # Utilities
@@ -58,7 +65,7 @@ function gaussian(x, x0, width, amp)
 end
 
 # ⟨x⟩_+
-positive(x) = 0.5 * (x + abs(x))
+positive(x) = 0.25 * (x + abs(x))
 
 # centred FD with forward/backward on ends
 function DfDx(f::Vector, p::Params)
@@ -121,7 +128,7 @@ function Fcoef(ax, d, p)
     gval = g(d,p)
     n = p.n
     A = p.A
-    C2 = p.C2
+    C2 = CC2(p) #p.C2
     F = similar(d)
     for i in eachindex(d)
         if ax[i] > 0
@@ -191,12 +198,15 @@ function solve_uw_step(u_old, w_old, d, T, p::Params)
         A[1,1] = 1.0
         a[1]   = 0.0
 
-        # to prescribe traction T
-        A[N,N] = 1.0*idx
-        A[N,N-1] = -1.0*idx
-        B[N,N] = -1.0*idx
-        B[N,N-1] = 1.0*idx
-        a[N]   = T/K[N]
+        # # to prescribe traction T
+        # A[N,N] = 1.0*idx
+        # A[N,N-1] = -1.0*idx
+        # B[N,N] = -1.0*idx
+        # B[N,N-1] = 1.0*idx
+        # a[N]   = T/K[N]
+
+        A[N,N] = 1.0
+        a[N] = T
 
         # --------------------------------------------------
         # Boundary conditions (w)
@@ -208,7 +218,9 @@ function solve_uw_step(u_old, w_old, d, T, p::Params)
         # Neuman with backward FD on right end
         D[N,N] = 1.0*idx
         D[N,N-1] = -1.0*idx
-        c[N] = (w_old[N] - w_old[N-1])/dx + dt*F[N]*(T/K[N])^3#dt*F[N]*G[N]*(T/K[N])
+        ux_minus_wx_old = (u_old[N]-u_old[N-1])/dx - (w_old[N]-w_old[N-1])/dx
+        c[N] = (w_old[N] - w_old[N-1])/dx + dt*F[N]*(ux_minus_wx_old)^3
+        #c[N] = (w_old[N] - w_old[N-1])/dx + dt*F[N]*(T/K[N])^3#dt*F[N]*G[N]*(T/K[N])
 
         # --------------------------------------------------
         # Interior nodes
@@ -302,7 +314,7 @@ function compute_H_from_d(d::Vector, p::Params)
     N = p.N
     l = p.l
     dx = p.dx
-    C3 = p.C3
+    C3 = CC3(p)#p.C3
 
     return abs.(d .- l^2 .*DfDxx(d,p))./(2*C3*l*(1 .- d .+ p.kappa))
 end
@@ -314,7 +326,7 @@ function solve_phasefield(H, p::Params)
     N = p.N
     dx = p.dx
     l = p.l
-    C3 = p.C3
+    C3 = CC3(p) #p.C3
 
     M = zeros(N,N)
     f = zeros(N)
@@ -352,7 +364,7 @@ end
 # Time dependent BC
 # ---------------------------
 function traction(t, p::Params)
-    return 0.5*t#0.1*abs(sin(t)))
+    return 2.0*t#0.1*abs(sin(t)))
 end
 
 
@@ -363,37 +375,40 @@ end
 function run_simulation(p::Params)
     x = range(0,p.L,p.N)
 
+    println("ν = $(p.ν) | μ = $(μ(p)) |  C2 = $(CC2(p)) | C3 = $(CC3(p))")
+
     u = zeros(p.N)
     w = zeros(p.N)
-    d = 0.1*gaussian(x, p.L/2, 0.005, 0.2)#0.01*rand(p.N)
+    d = gaussian(x, p.L/2, 0.2, 0.3)#0.01*rand(p.N)
     H = zeros(p.N)
     # initial history from initial damage
     H = compute_H_from_d(d, p)
 
-    u_hist = zeros(p.N,p.T)
-    w_hist = zeros(p.N,p.T)
-    d_hist = zeros(p.N,p.T)
-    H_hist = zeros(p.N,p.T)
+    u_hist = zeros(p.N,p.NT)
+    w_hist = zeros(p.N,p.NT)
+    d_hist = zeros(p.N,p.NT)
+    H_hist = zeros(p.N,p.NT)
 
-    u_hist[:,1] = u
-    w_hist[:,1] = w
-    d_hist[:,1] = d
-    H_hist[:,1] = H
+    u_hist[:,1] = copy(u)
+    w_hist[:,1] = copy(w)
+    d_hist[:,1] = copy(d)
+    println(maximum(d))
+    H_hist[:,1] = copy(H)
 
-    for k in 2:p.T
+    for k in 2:p.NT
         # BC for total displacement
         t = (k-1)*p.dt
-        println("Time step $k / $(p.T) | t = $(round(t, digits=4))")
+        println("Time step $k / $(p.NT) | t = $(round(t, digits=4))")
         T = traction(t, p)
 
         u, w = solve_uw_step(u,w,d,T,p)
         update_history!(H,u,w,p)
         d = solve_phasefield(H,p)
 
-        u_hist[:,k] = u
-        w_hist[:,k] = w
-        d_hist[:,k] = d
-        H_hist[:,k] = H
+        u_hist[:,k] = copy(u)
+        w_hist[:,k] = copy(w)
+        d_hist[:,k] = copy(d)
+        H_hist[:,k] = copy(H)
     end
 
     serialize(p.savefile,(x,u_hist,w_hist,d_hist,H_hist))
