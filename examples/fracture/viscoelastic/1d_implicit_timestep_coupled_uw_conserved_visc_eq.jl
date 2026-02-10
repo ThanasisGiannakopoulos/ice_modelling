@@ -12,32 +12,32 @@ Base.@kwdef struct Params
     dx::Float64 = L/(N-1)
 
     # time
-    NT::Int = 2*163#808
-    dt::Float64 = 1e-1*0.5*0.5
+    NT::Int = 500#808
+    dt::Float64 = 1e-1
 
     # phase field
     l::Float64 = 0.1
-    kappa::Float64 = 1e-6
+    kappa::Float64 = 1e-5
 
     # material
     ν::Float64 = 0.325
-    A::Float64 = 1e-2 #1.2*1e-25
+    A::Float64 = 1e-25 #1.2*1e-25
     n::Int = 3
     #C2::Float64 = 11.82#0.25
     #C3::Float64 = 3520.75
-    char_length::Float64 = 1e-1
-    char_displ::Float64 = 1e-1
-    Gc::Float64 = 0.6
-    tau::Float64 = 1e-1*4
+    char_length::Float64 = 1e2
+    char_displ::Float64 = 1e-2
+    Gc::Float64 = 1.0
+    tau::Float64 = 1e3
 
     # numerics
-    tol::Float64 = 1e-9
+    tol::Float64 = 1e-6
     max_iter::Int = 20
 
     # critical energy for damage
     psi_crit::Float64 = 0.01#1e-2
 
-    savefile::String = "viscoelastic_1d.jls"
+    savefile::String = "implicit_coupled_uw_conserved_visc_eq.jls"
 end
 
 # ============================================================
@@ -175,11 +175,12 @@ function solve_uw_step(u_old, w_old, d, T, p::Params)
 
         F = Fcoef(ax,d,p)
         G = Gcoef(ax,p)
-        Fmid = stagav(F)
-        Gmid = stagav(G)
-        Fx = DfDx(F, p)
+        #Fmid = stagav(F)
+        #Gmid = stagav(G)
+        FGmid = stagav(F.*G)
+        #Fx = DfDx(F, p)
         #Gx = DfDx(G, p)
-        Gx = (n-1)*ax.^(n-2) .*DfDxx(a,p)
+        #Gx = (n-1)*ax.^(n-2) .*DfDxx(a,p)
 
         # --------------------------------------------------
         # Allocate blocks
@@ -213,7 +214,7 @@ function solve_uw_step(u_old, w_old, d, T, p::Params)
         # --------------------------------------------------
         # Dirichlet on left end; acts as gauge fixing since we evolve w_x
         D[1,1] = 1.0
-        c[1] = 0.0
+        c[1] = 0.0 #0.0
 
         # Neuman with backward FD on right end
         D[N,N] = 1.0*idx
@@ -232,11 +233,13 @@ function solve_uw_step(u_old, w_old, d, T, p::Params)
             # m=minus=i-1/2, p=plus=i+1/2
             km = Kmid[i-1]
             kp = Kmid[i]
-            Fm = Fmid[i-1]
-            Fp = Fmid[i]
-            Gm = Gmid[i-1]
-            Gp = Gmid[i]
-
+            #Fm = Fmid[i-1]
+            #Fp = Fmid[i]
+            #Gm = Gmid[i-1]
+            #Gp = Gmid[i]
+            FGm = FGmid[i-1]
+            FGp = FGmid[i]
+            
             # ===== Momentum equation =====
             A[i,im] =  km#*idx^2
             A[i,i]  = -(km+kp)#*idx^2
@@ -247,16 +250,16 @@ function solve_uw_step(u_old, w_old, d, T, p::Params)
             B[i,ip] = -kp#*idx^2
 
             # ===== Viscosity equation =====
-            C[i,im] =  0.5*dt*Fm*Gm
-            C[i,i]  = -dt*(0.5*Fp*Gp-0.5*Fm*Gm-dx*(Fx[i]*G[i]+F[i]*Gx[i]))
-            C[i,ip] = -0.5*dt*Fp*Gp
+            C[i,im] =  -dt*FGm #0.5*dt*Fm*Gm
+            C[i,i]  = dt*(FGm+FGp) #-dt*(0.5*Fp*Gp-0.5*Fm*Gm-dx*(Fx[i]*G[i]+F[i]*Gx[i]))
+            C[i,ip] = -dt*FGp #-0.5*dt*Fp*Gp
 
-            D[i,im] = -0.5*(1 + dt*Fm*Gm)
-            D[i,i]  = -dt*(0.5*Fp*Gp-0.5*Fm*Gm-dx*(Fx[i]*G[i]+F[i]*Gx[i]))
-            D[i,ip] =  0.5*(1 + dt*Fp*Gp)
+            D[i,im] = -1.0 + dt*FGm #-0.5*(1 + dt*Fm*Gm)
+            D[i,i]  = -dt*(FGm+FGp) #-dt*(0.5*Fp*Gp-0.5*Fm*Gm-dx*(Fx[i]*G[i]+F[i]*Gx[i]))
+            D[i,ip] =  1.0 + dt*FGp #0.5*(1 + dt*Fp*Gp)
 
             # RHS
-            c[i] = (w_old[ip] - w_old[im]) / 2
+            c[i] = (w_old[ip] - w_old[im]) #/ 2
         end
 
         # --------------------------------------------------
@@ -364,7 +367,7 @@ end
 # Time dependent BC
 # ---------------------------
 function traction(t, p::Params)
-    return 2.0*t#0.1*abs(sin(t)))
+    return 200.0*t#0.1*abs(sin(t)))
 end
 
 

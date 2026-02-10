@@ -20,10 +20,10 @@ end
 begin
 	using Serialization
 
-	x, u_all, w_all, d_all, H_all =
-    deserialize("../../../examples/fracture/viscoelastic/implicit_coupled_uw_conserved_visc_eq.jls")
+	x, u_all, w_all, d_all, H_all, t_all =
+    deserialize("../../../examples/fracture/viscoelastic/run_adaptive_implicit_coupled_uw_iter_uwd.jls")
 
-	niter = size(d_all, 2)
+	niter = length(d_all[:])
 
 end
 
@@ -46,19 +46,19 @@ begin
 	    legend = false
 	)
 	
-	plot!(x, u_all[:, iter], subplot=1, title="u (Iter $iter)")
-	plot!(x, w_all[:, iter], subplot=2, title="w (Iter $iter)")
-	plot!(x, d_all[:, iter], subplot=3, title="d (Iter $iter)")
-	plot!(x, H_all[:, iter], subplot=4, title="H (Iter $iter)")
+	plot!(x, u_all[iter][:], subplot=1, title="u(t=$(t_all[iter])) iter = $iter")
+	plot!(x, w_all[iter][:], subplot=2, title="w(t=$(t_all[iter]))")
+	plot!(x, d_all[iter][:], subplot=3, title="d(t=$(t_all[iter]))")
+	plot!(x, H_all[iter][:], subplot=4, title="H(t=$(t_all[iter]))")
 	
 end
 
-# ╔═╡ 6b92368f-1c68-4958-adbd-37093340a550
-w_all[:,end]
+# ╔═╡ 10334424-2bbc-4380-9742-95723335ed1c
+length(d_all[:])
 
 # ╔═╡ b1c775c5-3d4f-4cd6-a580-4648b4e0f9c4
 Base.@kwdef struct Params
-    # geometry
+# geometry
     L::Float64 = 10.0
     N::Int = 512
     dx::Float64 = L/(N-1)
@@ -69,25 +69,27 @@ Base.@kwdef struct Params
 
     # phase field
     l::Float64 = 0.1
-    kappa::Float64 = 1e-2
+    kappa::Float64 = 1e-6
 
     # material
     ν::Float64 = 0.325
-    A::Float64 = 1e-25 #1.2*1e-25
+    A::Float64 = 1e-2 #1.2*1e-25
     n::Int = 3
     #C2::Float64 = 11.82#0.25
     #C3::Float64 = 3520.75
-    char_length::Float64 = 1e2
-    char_displ::Float64 = 1e-2
-    Gc::Float64 = 1.0
-    tau::Float64 = 1e3
+    char_length::Float64 = 1e-1
+    char_displ::Float64 = 1e-1
+    Gc::Float64 = 0.6
+    tau::Float64 = 1e-1*4
 
     # numerics
-    tol::Float64 = 1e-6
+    tol::Float64 = 1e-9
     max_iter::Int = 20
 
     # critical energy for damage
     psi_crit::Float64 = 0.01#1e-2
+
+    savefile::String = "viscoelastic_1d.jls"
 end
 
 
@@ -237,11 +239,12 @@ begin
 	    legend = false
 	)
 
-	res1 = res_eq1(u_all[:,iter2], w_all[:,iter2], d_all[:,iter2], p)
-	wdot = (w_all[:,iter2] .- w_all[:,iter2-1])/p.dt;
-	res2 = res_eq2(u_all[:,iter2], w_all[:,iter2],
-				   wdot[:], d_all[:,iter2], p)
-	resd = res_d(d_all[:,iter2], H_all[:,iter2], p)
+	res1 = res_eq1(u_all[iter2][:], w_all[iter2][:], d_all[iter2][:], p)
+	dt = t_all[iter2]-t_all[iter2-1]
+	wdot = (w_all[iter2][:] .- w_all[iter2-1][:])/dt;
+	res2 = res_eq2(u_all[iter2][:], w_all[iter2][:],
+				   wdot[:], d_all[iter2][:], p)
+	resd = res_d(d_all[iter2][:], H_all[iter2][:], p)
 	
 	plot!(x, res1, subplot=1, title="res1 (Iter $iter2)")
 	plot!(x, res2, subplot=2, title="res2 (Iter $iter2)")
@@ -1403,7 +1406,7 @@ version = "1.13.0+0"
 
 # ╔═╡ Cell order:
 # ╠═a202592b-870c-4bba-8b03-4ee447b7f968
-# ╠═6b92368f-1c68-4958-adbd-37093340a550
+# ╠═10334424-2bbc-4380-9742-95723335ed1c
 # ╠═3b8da612-ccc9-4684-afb1-e7612dce88b5
 # ╠═40ba9d34-e05d-46a4-b549-178362009b20
 # ╠═b1c775c5-3d4f-4cd6-a580-4648b4e0f9c4
