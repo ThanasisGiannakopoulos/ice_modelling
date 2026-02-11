@@ -7,36 +7,46 @@ using LinearAlgebra
 
 Base.@kwdef struct Params
     # geometry
-    L::Float64 = 10.0
-    N::Int = 512
+    L::Float64 = 1.0
+    N::Int = 256
     dx::Float64 = L/(N-1)
 
     # time
-    tf::Float64 = 10.0
+    tf::Float64 = 1.0
 
     # phase field
-    l::Float64 = 0.1
+    l::Float64 = 0.01
     kappa::Float64 = 1e-5
 
     # material
     ν::Float64 = 0.325
-    A::Float64 = 1e-2 #1.2*1e-25
+    A::Float64 = 1e-1
     n::Int = 3
-    #C2::Float64 = 11.82#0.25
-    #C3::Float64 = 3520.75
-    char_length::Float64 = 1e-1
-    char_displ::Float64 = 1e-1
-    Gc::Float64 = 0.6
-    tau::Float64 = 1e-1*4
+    char_length::Float64 = 1e0
+    char_displ::Float64 = 1e0
+    Gc::Float64 = 1.0
+    tau::Float64 = 1e-1*0.5
 
     # numerics
     tol::Float64 = 1e-9
     max_iter::Int = 20
 
     # critical energy for damage
-    psi_crit::Float64 = 0.01#1e-2
+    psi_crit::Float64 = 0.0#1e-2
+
+    # for messages and save
+    print_every::Int = 1
+    save_every::Int = 1
+
 
     savefile::String = "run_explicit_adaptive_timestep.jls"
+end
+
+# ---------------------------
+# Time dependent BC
+# ---------------------------
+function BC(t)
+    return 2.0*t#0.1*abs(sin(t)))
 end
 
 # ============================================================
@@ -147,153 +157,12 @@ function Gcoef(ax, p)
 end
 
 # ============================================================
-# Coupled (u,w) solver for one timestep
-# ============================================================
-
-function solve_uw_step(u_old, w_old, d, T, p::Params)
-    N  = p.N
-    dx = p.dx
-    idx = 1/dx
-    dt = p.dt
-    n = p.n
-
-    u = copy(u_old)
-    w = copy(w_old)
-
-    res = 0.0
-    ii = 0
-    for iter in 1:p.max_iter
-        ii +=1
-        # elastic strain
-        a = u .- w
-        ax = DfDx(a,p)
-
-        # coefficients
-        K = Kbar(ax,d,p)
-        Kmid = stagav(K)
-
-        F = Fcoef(ax,d,p)
-        G = Gcoef(ax,p)
-        Fmid = stagav(F)
-        Gmid = stagav(G)
-        Fx = DfDx(F, p)
-        #Gx = DfDx(G, p)
-        Gx = (n-1)*ax.^(n-2) .*DfDxx(a,p)
-
-        # --------------------------------------------------
-        # Allocate blocks
-        # --------------------------------------------------
-        A = zeros(N,N)
-        B = zeros(N,N)
-        C = zeros(N,N)
-        D = zeros(N,N)
-
-        a = zeros(N)
-        c = zeros(N)
-
-        # --------------------------------------------------
-        # Boundary conditions (u)
-        # --------------------------------------------------
-        A[1,1] = 1.0
-        a[1]   = 0.0
-
-        # # to prescribe traction T
-        # A[N,N] = 1.0*idx
-        # A[N,N-1] = -1.0*idx
-        # B[N,N] = -1.0*idx
-        # B[N,N-1] = 1.0*idx
-        # a[N]   = T/K[N]
-
-        A[N,N] = 1.0
-        a[N] = T
-
-        # --------------------------------------------------
-        # Boundary conditions (w)
-        # --------------------------------------------------
-        # Dirichlet on left end; acts as gauge fixing since we evolve w_x
-        D[1,1] = 1.0
-        c[1] = 0.0 #0.0
-
-        # Neuman with backward FD on right end
-        D[N,N] = 1.0*idx
-        D[N,N-1] = -1.0*idx
-        ux_minus_wx_old = (u_old[N]-u_old[N-1])/dx - (w_old[N]-w_old[N-1])/dx
-        c[N] = (w_old[N] - w_old[N-1])/dx + dt*F[N]*(ux_minus_wx_old)^3
-        #c[N] = (w_old[N] - w_old[N-1])/dx + dt*F[N]*(T/K[N])^3#dt*F[N]*G[N]*(T/K[N])
-
-        # --------------------------------------------------
-        # Interior nodes
-        # --------------------------------------------------
-        for i in 2:N-1
-            im = i-1
-            ip = i+1
-
-            # m=minus=i-1/2, p=plus=i+1/2
-            km = Kmid[i-1]
-            kp = Kmid[i]
-            Fm = Fmid[i-1]
-            Fp = Fmid[i]
-            Gm = Gmid[i-1]
-            Gp = Gmid[i]
-
-            # ===== Momentum equation =====
-            A[i,im] =  km#*idx^2
-            A[i,i]  = -(km+kp)#*idx^2
-            A[i,ip] =  kp#*idx^2
-
-            B[i,im] = -km#*idx^2
-            B[i,i]  =  (km+kp)#*idx^2
-            B[i,ip] = -kp#*idx^2
-
-            # ===== Viscosity equation =====
-            C[i,im] =  0.5*dt*Fm*Gm
-            C[i,i]  = -dt*(0.5*Fp*Gp-0.5*Fm*Gm-dx*(Fx[i]*G[i]+F[i]*Gx[i]))
-            C[i,ip] = -0.5*dt*Fp*Gp
-
-            D[i,im] = -0.5*(1 + dt*Fm*Gm)
-            D[i,i]  = -dt*(0.5*Fp*Gp-0.5*Fm*Gm-dx*(Fx[i]*G[i]+F[i]*Gx[i]))
-            D[i,ip] =  0.5*(1 + dt*Fp*Gp)
-
-            # RHS
-            c[i] = (w_old[ip] - w_old[im]) / 2
-        end
-
-        # --------------------------------------------------
-        # Assemble full system
-        # --------------------------------------------------
-        M = [A  B;
-             C  D]
-
-        rhs = [a; c]
-
-        sol = M \ rhs
-
-        u_new = sol[1:N]
-        w_new = sol[N+1:end]
-
-        res = maximum(abs.(u_new-u)) + maximum(abs.(w_new-w))
-        #println("   Iteration $iter: max(d) = ", maximum(d))
-        u .= u_new
-        w .= w_new
-
-        if res < p.tol
-            break
-        end
-    end
-    # println("   res = $res | max(d) =  $(maximum(d)) | iter =  $iter")
-    println("   res = $(round(res, sigdigits=4)) | max(d) = $(round(maximum(d), digits=4)) | iter = $ii")
-
-
-    return u, w
-end
-
-
-# ============================================================
-# Phase-field history
+# For history field
 # ============================================================
 
 # get history from elastic displacement
-function update_history!(H, u, w, p::Params)
+function calculate_energy(u, w, p::Params)
+    energy = zeros(length(u))
     ax = DfDx(u,p) .- DfDx(w,p)
 
     for i in eachindex(ax)
@@ -304,8 +173,9 @@ function update_history!(H, u, w, p::Params)
             psi_plus = ax[i]^2 * (8*μ(p)/9)
         end
         # use ⟨.⟩_+
-        H[i] = max(H[i], positive(psi_plus - p.psi_crit))
+        energy[i] = positive(psi_plus - p.psi_crit)
     end
+    return energy
 end
 
 # get history from d; for initial data
@@ -317,55 +187,228 @@ function compute_H_from_d(d::Vector, p::Params)
 
     return abs.(d .- l^2 .*DfDxx(d,p))./(2*C3*l*(1 .- d .+ p.kappa))
 end
+
+# adaptive timestep using the nonlinear part
+function get_dt(G, p)
+    dx = p.dx
+    maxG = maximum(abs.(G))
+    if maxG>1
+        dt = 0.25*dx/maxG
+    else
+        dt = 0.25*dx
+    end
+    return dt
+end
+
 # ============================================================
-# Phase-field solver
+# Coupled (u,d) solver for fixed w
 # ============================================================
 
-function solve_phasefield(H, p::Params)
+# you know w (fixed), get an u,d (fixed point iter), and History H
+function get_udH(u_old, w_old, d_old, H_old, t, p::Params)
+    N  = p.N
+    dx = p.dx
+    l = p.l 
+
+    # BC
+    T = BC(t)
+
+    u = copy(u_old)
+    d = copy(d_old)
+    H = zeros(N)
+
+    res = 0.0
+    ii = 0
+    for iter in 1:p.max_iter
+        ii +=1
+        # elastic strain
+        a = u .- w_old
+        ax = DfDx(a,p)
+
+        # coefficients
+        K = Kbar(ax,d,p)
+        Kmid = stagav(K)
+
+        # --------------------------------------------------
+        # Allocate blocks
+        # --------------------------------------------------
+        A = zeros(N,N)
+        a = zeros(N)
+
+        # --------------------------------------------------
+        # Boundary conditions (u)
+        # --------------------------------------------------
+        A[1,1] = 1.0
+        a[1]   = 0.0
+
+        A[N,N] = 1.0
+        a[N] = T
+
+        # --------------------------------------------------
+        # Interior nodes
+        # --------------------------------------------------
+        for i in 2:N-1
+            im = i-1
+            ip = i+1
+
+            # m=minus=i-1/2, p=plus=i+1/2
+            km = Kmid[i-1]
+            kp = Kmid[i]
+
+            # ===== Momentum equation =====
+            A[i,im] =  km#*idx^2
+            A[i,i]  = -(km+kp)#*idx^2
+            A[i,ip] =  kp#*idx^2
+
+            a[i] = km*w_old[im]-(km+kp)*w_old[i] + kp*w_old[ip]
+
+        end
+
+        u_new = A \ a
+
+        energy = calculate_energy(u_new,w_old,p)
+        H = max.(H_old,energy)
+
+        C3 = CC3(p) #p.C3
+
+        M = zeros(N,N)
+        f = zeros(N)
+
+        # Interior points
+        for i in 2:N-1
+            M[i, i-1] = -l^2 / dx^2
+            M[i, i]   = 1 + 2*l^2/dx^2 + 2*C3*l*H[i]
+            M[i, i+1] = -l^2 / dx^2
+            f[i]      = 2*C3*l*H[i]
+        end
+
+        # Neumann BC at i=1 (ghost node)
+        M[1,1] = 1 + 2*l^2/dx^2 + 2*C3*l*H[1]
+        M[1,2] = -2*l^2/dx^2
+        f[1]   = 2*C3*l*H[1]
+
+        # Neumann BC at i=N (ghost node)
+        M[N,N]   = 1 + 2*l^2/dx^2 + 2*C3*l*H[N]
+        M[N,N-1] = -2*l^2/dx^2
+        f[N]     = 2*C3*l*H[N]
+
+        # Solve
+        d_new = M \ f
+
+        res = maximum(abs.(u_new-u)) + maximum(abs.(d_new-d))
+        u .= u_new
+        d .= d_new
+
+        if res < p.tol
+            break
+        end
+    end
+    #println("   res = $(round(res, sigdigits=4)) | max(d) = $(round(maximum(d), digits=4)) | iter = $ii")
+
+    return u, d, H, res, ii
+end
+
+# get f; dotwx=f, knowing u,w at the same timestep
+function get_f(u,w,d,p::Params)
+
+    # get f, dotwx=f
+    a = u .- w
+    ax = DfDx(a,p)
+    F = Fcoef(ax,d,p)
+    f = F.*ax.^p.n
+    return f
+end
+
+# knowing the rhs, invert to get w
+function get_w(w_old, rhs, dt, p::Params)
     N = p.N
     dx = p.dx
-    l = p.l
-    C3 = CC3(p) #p.C3
+    w_new = zeros(N)
+    
+    # initiate matrix, vector for inversion w_new = A \ a
+    A = zeros(N,N)
+    a = zeros(N)
 
-    M = zeros(N,N)
-    f = zeros(N)
+    # BC left, Dirichlet
+    A[1,1] = 1.0
+    a[1] = 0.0
+    # BC right, Neumann, backward 1st order FD
+    A[N,N] = 1.0
+    A[N,N-1] = -1.0
+    a[N] = w_old[N] - w_old[N-1] + 2.0*dt*dx*rhs[N]
 
-    # Interior points
     for i in 2:N-1
-        M[i, i-1] = -l^2 / dx^2
-        M[i, i]   = 1 + 2*l^2/dx^2 + 2*C3*l*H[i]
-        M[i, i+1] = -l^2 / dx^2
-        f[i]      = 2*C3*l*H[i]
+        A[i,i-1] = -1.0
+        A[i,i+1] = 1.0
+        a[i] = w_old[i+1] - w_old[i-1] + 2.0*dt*dx*rhs[i]
     end
 
-    # Neumann BC at i=1 (ghost node)
-    M[1,1] = 1 + 2*l^2/dx^2 + 2*C3*l*H[1]
-    M[1,2] = -2*l^2/dx^2
-    f[1]   = 2*C3*l*H[1]
-
-    # Neumann BC at i=N (ghost node)
-    M[N,N]   = 1 + 2*l^2/dx^2 + 2*C3*l*H[N]
-    M[N,N-1] = -2*l^2/dx^2
-    f[N]     = 2*C3*l*H[N]
-
-    # M[1,1] = -1.0/dx
-    # M[1,2] = 1/0/dx
-    # M[N,N] = 1.0/dx
-    # M[N,N-1] = -1.0/dx
-    # Solve
-    d_new = M \ f
-
-    return d_new
+    w_new = A \ a
+    return w_new
 end
 
+# RK4 timestep, returns u,w,d,H at the next timestep, can be applied for adaptive dt
+function RK4_timestep_uwdH(u_old, w_old, d_old, H_old, t, dt, p::Params)
+    
+    N = p.N
 
-# ---------------------------
-# Time dependent BC
-# ---------------------------
-function traction(t, p::Params)
-    return 2.0*t#0.1*abs(sin(t)))
+    # 1st step
+    #println("get k1")
+    k1 = zeros(N)
+    k1 = get_f(u_old,w_old,d_old,p)
+
+    # 2nd step
+    #println("get k2")
+    u1 = zeros(N)
+    d1 = zeros(N)
+    H1 = zeros(N) # redundant?
+
+    w1 = w_old .+ k1*0.5*dt
+    t1 = t + 0.5*dt
+    u1, d1, H1, _ = get_udH(u_old, w1, d_old, H_old, t1, p)
+    
+    k2 = zeros(N)
+    k2 = get_f(u1,w1,d1,p)
+
+    #3rd step
+    #println("get k3")
+    u2 = zeros(N)
+    d2 = zeros(N)
+    H2 = zeros(N) # redundant?
+
+    w2 = w_old .+ k2*0.5*dt
+    t2 = t1
+    # find again u,d,H for w2
+    # not sure if it makes sense to use u1,d1,H1 instead
+    u2, d2, H2, _ = get_udH(u_old, w2, d_old, H_old, t2, p)
+    
+    k3 = zeros(N)
+    k3 = get_f(u2,w2,d2,p)
+
+    # 4th step
+    #println("get k4")
+    u3 = zeros(N)
+    d3 = zeros(N)
+    H3 = zeros(N) # redundant?
+
+    w3 = w_old .+ k3*dt
+    t3 = t + dt
+    # find again u,d,H for w2
+    # not sure if it makes sense to use u1,d1,H1 instead
+    u3, d3, H3, _ = get_udH(u_old, w3, d_old, H_old, t3, p)
+    
+    k4 = zeros(N)
+    k4 = get_f(u3,w3,d3,p)
+
+    # get w at the next timestep; rhs is an average i.e. rhs=(k1+2k2+2k3+k4)/6 )
+    #println("get new sols")
+    rhs = (k1 .+ 2*k2 .+ 2*k3 .+k4)/6
+    w_new = get_w(w_old, rhs, dt, p)
+    # now get u_new, d_new, H_new, for known w_new
+    u_new, d_new, H_new, res, ii = get_udH(u_old, w_new, d_old, H_old, t+dt, p)
+
+    return u_new, w_new, d_new, H_new, res, ii
 end
-
 
 # ============================================================
 # Main time loop
@@ -378,39 +421,82 @@ function run_simulation(p::Params)
 
     u = zeros(p.N)
     w = zeros(p.N)
-    d = gaussian(x, p.L/2, 0.2, 0.3)#0.01*rand(p.N)
+    d = gaussian(x, p.L/2, 0.02, 0.3)#0.01*rand(p.N)
     H = zeros(p.N)
     # initial history from initial damage
     H = compute_H_from_d(d, p)
 
-    u_hist = zeros(p.N,p.NT)
-    w_hist = zeros(p.N,p.NT)
-    d_hist = zeros(p.N,p.NT)
-    H_hist = zeros(p.N,p.NT)
+    u_list = []
+    w_list = []
+    d_list = []
+    H_list = []
+    t_list = []
 
-    u_hist[:,1] = copy(u)
-    w_hist[:,1] = copy(w)
-    d_hist[:,1] = copy(d)
-    println(maximum(d))
-    H_hist[:,1] = copy(H)
+    t = 0.0
+    step = 0
+    
+    append!(u_list, [copy(u)])
+    append!(w_list, [copy(w)])
+    append!(d_list, [copy(d)])
+    append!(H_list, [copy(H)])
+    append!(t_list, [copy(t)])
 
-    for k in 2:p.NT
-        # BC for total displacement
-        t = (k-1)*p.dt
-        println("Time step $k / $(p.NT) | t = $(round(t, digits=4))")
-        T = traction(t, p)
+    println("Time step $step | t = $(round(t, digits=4))")
+    println("max(d0) = $(maximum(d))")
+    
+    #for k in 2:p.NT
+    while t < p.tf
 
-        u, w = solve_uw_step(u,w,d,T,p)
-        update_history!(H,u,w,p)
-        d = solve_phasefield(H,p)
+        # get timestep with nonlinearities for current time
+        a = u .- w
+        ax = DfDx(a,p)
+        G = Gcoef(ax, p)
+        dt = get_dt(G,p)
 
-        u_hist[:,k] = copy(u)
-        w_hist[:,k] = copy(w)
-        d_hist[:,k] = copy(d)
-        H_hist[:,k] = copy(H)
+        # calculate new sols
+        u_new, w_new, d_new, H_new, res, ii = RK4_timestep_uwdH(u, w, d, H, t, dt, p)
+        
+        # roll-over new sols to active vars
+        u = copy(u_new)
+        w = copy(w_new)
+        d = copy(d_new)
+        H = copy(H_new)
+
+        # update time
+        t += dt
+        step +=1
+
+        # if res >p.tol
+        #     println("Time step $step | t = $(round(t, digits=4))")
+        #     append!(u_list, [copy(u)])
+        #     append!(w_list, [copy(w)])
+        #     append!(d_list, [copy(d)])
+        #     append!(H_list, [copy(H)])
+        #     append!(t_list, [copy(t)])
+        #     serialize(p.savefile,(x,u_list,w_list,d_list,H_list, t_list))
+        #     break
+        # end
+        if step % p.print_every == 0
+            println("timestep = $step | t = $(round(t, digits=4)) | res = $(round(res, sigdigits=4)) | max(d) = $(round(maximum(d), digits=4)) | iter = $ii")
+        end
+
+        if step % p.save_every == 0
+            append!(u_list, [copy(u)])
+            append!(w_list, [copy(w)])
+            append!(d_list, [copy(d)])
+            append!(H_list, [copy(H)])
+            append!(t_list, [copy(t)])
+        end
     end
 
-    serialize(p.savefile,(x,u_hist,w_hist,d_hist,H_hist))
+    # save last timestep
+    append!(u_list, [copy(u)])
+    append!(w_list, [copy(w)])
+    append!(d_list, [copy(d)])
+    append!(H_list, [copy(H)])
+    append!(t_list, [copy(t)])
+
+    serialize(p.savefile,(x,u_list,w_list,d_list,H_list, t_list))
 end
 
 # ============================================================

@@ -7,36 +7,36 @@ using LinearAlgebra
 
 Base.@kwdef struct Params
     # geometry
-    L::Float64 = 10.0
-    N::Int = 512
+    L::Float64 = 1.0
+    N::Int = 256
     dx::Float64 = L/(N-1)
 
     # time
     #NT::Int = 2*290#808
     #dt::Float64 = 1e-1*0.5*0.5*0.5
-    tf::Float64 = 10.0
+    tf::Float64 = 5.0
 
     # phase field
-    l::Float64 = 0.1
+    l::Float64 = 0.01
     kappa::Float64 = 1e-5
 
     # material
     ν::Float64 = 0.325
-    A::Float64 = 1e-2 #1.2*1e-25
+    A::Float64 = 1e-1 #1.2*1e-25
     n::Int = 3
     #C2::Float64 = 11.82#0.25
     #C3::Float64 = 3520.75
-    char_length::Float64 = 1e-1
-    char_displ::Float64 = 1e-1
-    Gc::Float64 = 0.6
-    tau::Float64 = 1e-1*4
+    char_length::Float64 = 1e0
+    char_displ::Float64 = 1e0
+    Gc::Float64 = 1.0
+    tau::Float64 = 1e0
 
     # numerics
     tol::Float64 = 1e-9
     max_iter::Int = 20
 
     # critical energy for damage
-    psi_crit::Float64 = 0.01#1e-2
+    psi_crit::Float64 = 0.0#1e-2
 
     # for messages and save
     print_every::Int = 1
@@ -229,6 +229,7 @@ function solve_uw_step(u_old, w_old, d, T, p::Params)
         # B[N,N-1] = 1.0*idx
         # a[N]   = T/K[N]
 
+        # to prescribe displacement; still called T confusingly here
         A[N,N] = 1.0
         a[N] = T
 
@@ -242,8 +243,10 @@ function solve_uw_step(u_old, w_old, d, T, p::Params)
         # Neuman with backward FD on right end
         D[N,N] = 1.0*idx
         D[N,N-1] = -1.0*idx
+        # when displacement of u is given on the right boundary
         ux_minus_wx_old = (u_old[N]-u_old[N-1])/dx - (w_old[N]-w_old[N-1])/dx
         c[N] = (w_old[N] - w_old[N-1])/dx + dt*F[N]*(ux_minus_wx_old)^3
+        # when traction T = Kbar(ux-wx) is given on the right boundary
         #c[N] = (w_old[N] - w_old[N-1])/dx + dt*F[N]*(T/K[N])^3#dt*F[N]*G[N]*(T/K[N])
 
         # --------------------------------------------------
@@ -388,7 +391,7 @@ end
 # Time dependent BC
 # ---------------------------
 function traction(t, p::Params)
-    return 2.0*t#0.1*abs(sin(t)))
+    return 1.0*t#0.1*abs(sin(t)))
 end
 
 
@@ -403,7 +406,7 @@ function run_simulation(p::Params)
 
     u = zeros(p.N)
     w = zeros(p.N)
-    d = gaussian(x, p.L/2, 0.2, 0.3)#0.01*rand(p.N)
+    d = gaussian(x, p.L/2, 0.02, 0.3)#0.01*rand(p.N)
     H = zeros(p.N)
     # initial history from initial damage
     H = compute_H_from_d(d, p)

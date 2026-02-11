@@ -110,7 +110,7 @@ function ti_solver(u::Vector, d::Vector, H_old::Vector,
         # Step 1: history
         u_x = DuDx(u,p)
         H_new = 0.5*E.*max.(u_x,0).^2 # if u_x is negative we view it as compression and keep only tension
-        H = max.(H,H_new) # keep the maximum at each spatial grid point
+        H = max.(H_old,H_new) # keep the maximum at each spatial grid point
         """
         dont update the old history for every iteration of the same ti,
         only at the end of iter's where we have reached a good enough solution (convergence)
