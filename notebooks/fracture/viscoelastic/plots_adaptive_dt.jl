@@ -21,7 +21,7 @@ begin
 	using Serialization
 
 	x, u_all, w_all, d_all, H_all, t_all =
-    deserialize("../../../examples/fracture/viscoelastic/run_adaptive_implicit_coupled_uw_iter_uwd.jls")
+    deserialize("../../../examples/fracture/viscoelastic/run_explicit_adaptive_timestep.jls")
 
 	niter = length(d_all[:])
 
@@ -59,35 +59,41 @@ length(d_all[:])
 # ╔═╡ b1c775c5-3d4f-4cd6-a580-4648b4e0f9c4
 Base.@kwdef struct Params
 # geometry
-    L::Float64 = 10.0
-    N::Int = 512
+# geometry
+    L::Float64 = 1.0
+    N::Int = 256
     dx::Float64 = L/(N-1)
 
     # time
-    NT::Int = 2*290#808
-    dt::Float64 = 1e-1*0.5*0.5*0.5
+    #NT::Int = 2*290#808
+    #dt::Float64 = 1e-1*0.5*0.5*0.5
+    tf::Float64 = 5.0
 
     # phase field
-    l::Float64 = 0.1
-    kappa::Float64 = 1e-6
+    l::Float64 = 0.01
+    kappa::Float64 = 1e-5
 
     # material
     ν::Float64 = 0.325
-    A::Float64 = 1e-2 #1.2*1e-25
+    A::Float64 = 1e-1 #1.2*1e-25
     n::Int = 3
     #C2::Float64 = 11.82#0.25
     #C3::Float64 = 3520.75
-    char_length::Float64 = 1e-1
-    char_displ::Float64 = 1e-1
-    Gc::Float64 = 0.6
-    tau::Float64 = 1e-1*4
+    char_length::Float64 = 1e0
+    char_displ::Float64 = 1e0
+    Gc::Float64 = 1.0
+    tau::Float64 = 1e0
 
     # numerics
     tol::Float64 = 1e-9
     max_iter::Int = 20
 
     # critical energy for damage
-    psi_crit::Float64 = 0.01#1e-2
+    psi_crit::Float64 = 0.0#1e-2
+
+    # for messages and save
+    print_every::Int = 1
+    save_every::Int = 1
 
     savefile::String = "viscoelastic_1d.jls"
 end
@@ -196,9 +202,12 @@ end
 	function res_eq1(u,w,d,p)
     a = u .- w
     ax = DfDx(a,p)
+	axx = DfDxx(a,p)
     K = Kbar(ax,d,p)
-    res = DfDx(K.*ax,p)
-    return res
+	Kx = DfDx(K,p)
+    #res = DfDx(K.*ax,p)
+    res = Kx.*ax .+ K.*axx
+	return res
 end
 
 function res_eq2(u,w,wdot,d,p)
@@ -245,10 +254,13 @@ begin
 	res2 = res_eq2(u_all[iter2][:], w_all[iter2][:],
 				   wdot[:], d_all[iter2][:], p)
 	resd = res_d(d_all[iter2][:], H_all[iter2][:], p)
-	
-	plot!(x, res1, subplot=1, title="res1 (Iter $iter2)")
-	plot!(x, res2, subplot=2, title="res2 (Iter $iter2)")
-	plot!(x, resd, subplot=3, title="resd (Iter $iter2)")
+
+	N = length(res1)
+	i = 2
+	j = N-1
+	plot!(x[i:j], abs.(res1[i:j]), subplot=1, title="res1 (Iter $iter2)")
+	plot!(x[i:j], abs.(res2[i:j]), subplot=2, title="res2 (Iter $iter2)")
+	plot!(x[i:j], abs.(resd[i:j]), subplot=3, title="resd (Iter $iter2)")
 	
 end
 
