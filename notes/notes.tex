@@ -1178,7 +1178,7 @@ with $g=g(d)$. The dynamic viscosity comes from Glen's flow law
 \end{align}
 with $n=3$ and $A$ a constant that depends on temperature. The form of eq. \eqref{eq:viscoelastic_1d:viscosity} is 
 \begin{align*}
-    \eta(\dot{w}_x) \dot{w}_x = F (u_x-w_x)
+    \eta(\dot{w}_x) \dot{w}_x = \bar{F} (u_x-w_x)
 \end{align*}
 which after we replace the viscosity and solve for $\dot{w}_x$ (using $\dot{w}_x := \text{sgn}(\dot{w}_x) |\dot{w}_x|$)
 \begin{align}
@@ -1417,7 +1417,7 @@ where we have split $(u_x-w_x)^n$ into $\p_x(u-w)G$ with $G:=(u_x-w_x)^{n-1}$ wh
     G_x = (n-1)(u_x-w_x)^{n-2} (u_{xx}-w_{xx})
     \,, 
 \end{align*}
-which has no formal divergence for $n=3$ and can be computed using FDs for 1st and 2nd derivatives (it is more accurate this way). We can also calculate $G$ and then $G_x$ numerically, using centred finite difference (FD) operator for first order derivatives (with forward and backward stencils for $i=1,N$, respectively).
+which has no formal divergence for $n=3$ and can be computed using FDs for 1st and 2nd derivatives (maybe it is more accurate this way; this is what the code does currently). We can also calculate $G$ and then $G_x$ numerically, using centred finite difference (FD) operator for first order derivatives (with forward and backward stencils for $i=1,N$, respectively).
 
 Reminder: $f^{k,j}_i$ means scalar variable $f$ at spatial grid point $i \in[0,N]$, timestep $t_k$, and fixed point iteration $j \in [1,J]$. For the implicit Euler step we have that $w^k = w^{k-1} + \Delta t \, \text{rhs}^k$. We use the notation $F^k_i = F(d^k_i)$ since there is only one step to solve for $d$ and not iterations, $G^j_i=G(u^{k,j}_i,w^{k,j}_i)$ and $G_{x,i}$ is the discretized version of $G_x$ after action with the aforementioned FD on $G$. We get the following
 \begin{align*}
@@ -1491,11 +1491,12 @@ Reminder: $f^{k,j}_i$ means scalar variable $f$ at spatial grid point $i \in[0,N
     \,.
 \end{align*}
 
-\tg{HERE}
-
-The previous derivations give the matrix and rhs vector elements for the internal points. For the points $i=0,N$ we need boundary conditions. We apply Dirichlet BC for both $u$ and Neumann for $w$ (i.e. prescribe $w_x$ at $x=0,L$).
-
-\tg{TODO: for Neumann on $w$, discretize in $t_k$ and fixed point iterations $j$ the viscosity eq., and do one of the two following: either assume forward and backward FD stencils and build the matrix and rhs with this (it misses flux contro), or (more calculations), find the values of $w_{0,N}, u_{0,N}$ from the already discretized viscosity eq. for internal points, then assume a centred FD and replace the values of the ghost points (in terms of internal points). Same logic as in phase field, just more work; the positive is that this way the BC knows of flux control (I think).}
+The previous derivations give the matrix and rhs vector elements for the internal points. For the points $i=0,N$ we need boundary conditions. We apply Dirichlet BC for both $u$ and Dirichlet for $w$ on the left end, and Neumann on the right end (i.e. prescribe $w|_{x=0}$ at $w_x|_{x=L}$). apart from physical considerations, we need boundary conditions s.t. the matrices $\bb{A},\bb{D}$ as well the whole composite matrix, are invertible. The Dirichlet/Neumann on mix works for $\bb{D}$ with Neumann based on a backward (or forward if on the left side) first order stencil. For $u$ we have also tried succefully to apply traction on the right end, which results in backward stencils on the last point for $\bb{A},\bb{B}$ (traction involves the elastic displacement that is the difference of $u-w$).
+%
+\tg{TODO: implement the choice of different (physical) boundary conditions as a parameter.}
+In what follows we physically impose $u(0) = w(0) = 0$ and $u(L) = T$. $w_x$ is the inferred from the solutions of the previous fixed point iteration and imposed.
+%
+\tg{(I know $T$ is typically reserved for traction; TODO: change when different BC conditions are implemented as parameters)}
 
 % % Dirichlet for w is not a good choice; do Neumann
 % %
@@ -1542,7 +1543,7 @@ with
     \quad
     B_{1,1} = 0 
     \,, \quad
-    a_1 = \bar{u}^k_1
+    a_1 = 0%\bar{u}^k_1
     \,,
     \nonumber
     \\
@@ -1551,9 +1552,10 @@ with
     \,, \quad
     D_{1,1} = 1
     \,, \quad
-    c_1 = w^{k-1,J}_1 \frac{1}{1 + \Delta t F^{k-1}_1} 
-    + \bar{u}^k_1 \frac{\Delta t F^{k-1}_1}
-    {1 + \Delta t F^{k-1}_1}
+    c_1 = 0 
+    % w^{k-1,J}_1 \frac{1}{1 + \Delta t F^{k-1}_1} 
+    % + \bar{u}^k_1 \frac{\Delta t F^{k-1}_1}
+    % {1 + \Delta t F^{k-1}_1}
     \,,
     \nonumber
     \\
@@ -1631,7 +1633,8 @@ with
     \quad
     B_{N,N} = 0 
     \,, \quad
-    a_N = \bar{u}^k_N
+    a_N =  T \text{ \tg{(here it is displacement, not traction)}}
+    % \bar{u}^k_N
     \,,
     \nonumber
     \\
@@ -1640,12 +1643,16 @@ with
     \,, \quad
     D_{N,N} = 1
     \,, \quad
-    c_N = w^{k-1,J}_N \frac{1}{1 + \Delta t F^{k-1}_N} 
-    + \bar{u}^k_N \frac{\Delta t F^{k-1}_N}
-    {1 + \Delta t F^{k-1}_N}
+    c_N = \frac{w^{k-1}_N - w^{k-1}_{N-1}}{\Delta x} + \Delta t F^{k-1}_N 
+    \left( \frac{u^{k-1}_N - u^{k-1}_{N-1}}{\Delta x}
+    -\frac{w^{k-1}_N - w^{k-1}_{N-1}}{\Delta x}\right)^3
+    % w^{k-1,J}_N \frac{1}{1 + \Delta t F^{k-1}_N} 
+    % + \bar{u}^k_N \frac{\Delta t F^{k-1}_N}
+    % {1 + \Delta t F^{k-1}_N}
     \,,
     \nonumber
 \end{align}
+where for $c_N$ we used that $w_{x,N}^k = w_{x,N}^{k-1} + dt F_N^{k-1} \left(u_{x,N}^{k-1}-w_{x,N}^{k-1}\right)^3$ in the implicit timestep scheme, and discretized the derivatives with 1st order accurate backward FD.
 
 For the phase field we start from 
 \begin{align*}
@@ -1678,14 +1685,14 @@ For the natural Neumann boundary conditons of $d$ (i.e. $d_x=0|_{x=0,L}$) we aga
 \end{align*}
 with fictitious ghost points that are populated with the above implementation 
 \begin{align*}
-    M_{1,1} = 1 + \frac{l^2}{\Delta x^2} + 2 C_3 l \mathcal{H}_1
+    M_{1,1} = 1 + \frac{2 l^2}{\Delta x^2} + 2 C_3 l \mathcal{H}_1
     \,, \quad
     M_{1,2} = - \frac{2 l^2}{\Delta x^2}
     \,, \quad
     f_1 = 2 C_3 l \mathcal{H}_1
     \,,
     \\
-    M_{N,N} = 1 + \frac{l^2}{\Delta x^2} + 2 C_3 l \mathcal{H}_N
+    M_{N,N} = 1 + \frac{2 l^2}{\Delta x^2} + 2 C_3 l \mathcal{H}_N
     \,, \quad
     M_{N,N-1} = - \frac{2 l^2}{\Delta x^2}
     \,, \quad
@@ -1694,7 +1701,14 @@ with fictitious ghost points that are populated with the above implementation
 \end{align*}
 where we have assumed that $\mathcal{H}_0=\mathcal{H}_1$ and $\mathcal{H}_{N+1}=\mathcal{H}_N$.
 
-\tg{HERE}
+Some comments/observations from numerical experiments:
+\begin{itemize}
+    \item The implicit timestep implementation with $u,w$ in fixed point iteration and $d$ on its own, is mostly stable. When it goes close to total failure (of the material) $d$ can just fast and if the code does not crash, the $w$ solution is noisy (typically) on the left of the breaking point. Notice that the left BC is Dirichlet. Also, this depends on the numerical constant $k$ as well as the regularizationlength $l$, with better results in terms of smoothness with increasing values.
+    \item I tried to relax the $w$ Dirichlet BC with some approx. matching of the evolution eq; it was worse. Maybe experiment with different BC on the left altogether?
+    \item By plugging in solutions to disrcetized equations (with FDs) and calculating residuals, I checked the quality of the solutions. The residual for the viscous equation (that has a genuine time component) grows a lot with time. Experimenting with explicit timestep and RK4, this gets better. However that implementation does not solve $u,w$ coupled, but does a fixed point loop for $u,d$ assuming $w$ known. In this case the residual of the first equation is worse typically. TODO: check if it can be implemented with $u,w$ solved coupled, as well as relax RK4 after the first 2 steps and used AB3; more economic.
+    \item Tried monolithic algorithm for implicit implementation $u,w,d$ in the same fixed point loop, not better and more expensive.
+    \item Also tried to write the viscous eq in a conservative form (i.e. hit it with $\p_x$ and then FV discretize), worse results.
+\end{itemize}
 
 % So eq. \eqref{eq:viscoelastic_1d:momentum:form} is written in the form
 % \begin{align*}
@@ -1714,6 +1728,8 @@ where we have assumed that $\mathcal{H}_0=\mathcal{H}_1$ and $\mathcal{H}_{N+1}=
 % \end{enumerate}
 
 \subsection{2d viscoelastic plate}
+
+\tg{HERE}
 
 then add gravity, pressure, tests against Miehe's elastic limits
 % \subsection{Coupled with 1d SSA}
