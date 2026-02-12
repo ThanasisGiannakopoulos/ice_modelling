@@ -844,7 +844,7 @@ Then
 \end{align*}
 where $u_x -w_x:= \p_x u - \p_x w$. For the elastic stress tensor we have
 \begin{align*}
-    \bb{\sigma}_e = \lambda \, \tr(\bb{\epsilon}_e) + 2 \mu \, \bb{\epsilon}_e 
+    \bb{\sigma}_e = \lambda \, \tr(\bb{\epsilon}_e) \mathbb{1}+ 2 \mu \, \bb{\epsilon}_e 
     = - p \mathbb{1} + 2 \mu \, \dev({\bb{\epsilon}_e})
     =
     \begin{pmatrix}
@@ -899,6 +899,9 @@ Then, using the definition $\bb{\epsilon} := \sum_i \langle e_i \rangle_{\pm} \b
     \,,
 \end{align*}
 we have
+%
+\tg{the elements in the matrix should be multiplied with 1/2; check later calculations if this is important}
+%
 \begin{align*}
     2 \dev \left( \nabla_s a_x \right)_\pm
     =
@@ -1728,6 +1731,134 @@ Some comments/observations from numerical experiments:
 % \end{enumerate}
 
 \subsection{2d viscoelastic plate}
+
+The total and viscous discplacements in this case are 
+\begin{align*}
+    \bb{u} = \left( u_1(t,x,y), u_2(t,x,y), 0\right)
+    \,, \quad
+    \bb{w} = \left( w_1(t,x,y), w_2(t,x,y), 0\right)
+    \,,
+\end{align*}
+and the resulting strain tensors and their traces are
+\begin{align*}
+    &
+    \bb{\epsilon} = 
+    \begin{pmatrix}
+        \p_x u_1 & \frac{\p_x u_2 + \p_y u_1}{2} & 0 \\
+        \frac{\p_x u_2 + \p_y u_1}{2} & \p_y u_2 & 0 \\
+        0 & 0 & 0 
+    \end{pmatrix}
+    \,, \quad
+    \tr(\bb{\epsilon}) = \p_x u_1 + \p_y u_2
+    \\
+    &
+    \bb{\epsilon}_\varv = 
+    \begin{pmatrix}
+        \p_x w_1 & \frac{\p_x w_2 + \p_y w_1}{2} & 0 \\
+        \frac{\p_x w_2 + \p_y w_1}{2} & \p_y w_2 & 0 \\
+        0 & 0 & 0 
+    \end{pmatrix}
+    \,, \quad
+    \tr(\bb{\epsilon})_e = \p_x w_1 + \p_y w_2
+    \\
+    &
+    \bb{\epsilon}_e = 
+    \begin{pmatrix}
+        \p_x (u_1 - w_1) & \frac{\p_x (u_2-w_2) + \p_y (u_1-w_1)}{2} & 0 \\
+        \frac{\p_x (u_2-w_2) + \p_y (u_1-w_1)}{2} & \p_y (u_2-w_2) & 0 \\
+        0 & 0 & 0 
+    \end{pmatrix}
+    \,, \quad
+    \tr(\bb{\epsilon})_e = \p_x (u_1-w_1) + \p_y (u_2-w_2)
+    \,.
+\end{align*}
+We use the notation $u_{1x}:=\p_x u_1$ etc. for shorthand, and $a:=u-x$ for the elastic displacement. The deviatoric part of the elastic strain tensor is
+\begin{align*}
+    \dev(\bb{\epsilon}_e) = \bb{\epsilon}_e - \frac{1}{3} \tr(\bb{\epsilon}_e) \mathbb{1}
+    =
+    \begin{pmatrix}
+        \frac{2a_{1x}-a_{2y}}{3} & \frac{a_{2x} + a_{1y}}{2} & 0 \\
+        \frac{a_{2x} + a_{1y}}{2} & \frac{-a_{1x}+2a_{2y}}{3} & 0 \\
+        0 & 0 & \frac{-a_{1x}+a_{2y}}{3}
+    \end{pmatrix}
+    \,.
+\end{align*}
+The elastic stress tensor is
+\begin{align*}
+    \bb{\sigma}_e = 
+    \lambda \, \tr(\bb{\epsilon}_e) \mathbb{1}+ 2 \mu \, \bb{\epsilon}_e
+    =
+    \begin{pmatrix}
+        (\lambda + 2 \mu) a_{1x} + \lambda a_{2y} & \mu a_{2x} + \mu a_{1y} & 0 \\
+        \mu a_{2x} + \mu a_{1y} & \lambda a_{1x} + (\lambda + 2 \mu) a_{2y} & 0 \\
+        0 & 0 & \lambda a_{1x}+\lambda a_{2y}
+    \end{pmatrix}
+\end{align*}
+and the pressure is
+\begin{align*}
+    p := - \tr(\bb{\sigma}_e)/3 =  -(\lambda + \frac{2}{3}\mu) (a_{1x} + a_{2y})
+\end{align*}
+and
+\begin{align*}
+    \langle - p \rangle_{\pm}
+    =
+    \frac{p \pm |p|}{2} 
+    =
+    \frac{1}{2}
+    \left[(\lambda + \frac{2}{3}\mu)(a_{1x} + a_{2y}) \pm 
+    \left|(\lambda + \frac{2}{3}\mu)(a_{1x} + a_{2y})\right| \right]
+    \,.
+\end{align*}
+The spectrally decomposed deviatoric elastic strain tensor is
+\begin{align*}
+    &
+    2 \dev(\nabla_s \bb{a})
+    = 
+    \text{diag} \left(2 q_1, 2 q_2, 2 q_3 \right)
+    \,,
+    \\
+    \text{with }
+    &
+    q_1 = \frac{a_{1x}+a_{2y}}{6} -
+    \frac{1}{2}
+    \left[
+        (a_{1y}+a_{2x})^2 + (a_{1x}-a_{2y})^2
+    \right]^{1/2}
+    \\
+    &
+    q_{2} = \frac{a_{1x}+a_{2y}}{6} +
+    \frac{1}{2}
+    \left[
+        (a_{1y}+a_{2x})^2 + (a_{1x}-a_{2y})^2
+    \right]^{1/2}
+    \,,
+    \\
+    &
+    q_3 = \frac{-a_{1x} + a_{2y}}{3}
+    \,.
+\end{align*}
+Then we have
+\begin{align*}
+    \bb{\sigma} 
+    &
+    = g(d) \bb{\sigma}_e^+ + \bb{\sigma}_e^-
+    = g(d) \left[ \langle -p \rangle_+ \mathbb{1} + 2 \dev(\nabla_s \bb{a})_+ \right]
+    + 
+    \left[ \langle -p \rangle_- \mathbb{1} + 2 \dev(\nabla_s \bb{a})_- \right]
+    \\
+    &
+    = \text{diag} \left(\sigma_{11}, \sigma_{22}, \sigma_{33} \right)
+    \\
+    \text{with}
+    \\
+    \sigma_{ii} 
+    &
+    = \frac{g+1}{2}p + \frac{g-1}{2}|p| + (g+1)q_i + (g-1)|q_i|
+    \,, 
+    \text{ and }
+    i=1,2,3
+    \,.
+\end{align*}
 
 \tg{HERE}
 
