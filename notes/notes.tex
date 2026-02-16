@@ -1802,7 +1802,7 @@ and
 \begin{align*}
     \langle - p \rangle_{\pm}
     =
-    \frac{p \pm |p|}{2} 
+    \frac{-p \pm |-p|}{2} 
     =
     \frac{1}{2}
     \left[(\lambda + \frac{2}{3}\mu)(a_{1x} + a_{2y}) \pm 
@@ -1853,11 +1853,122 @@ Then we have
     \\
     \sigma_{ii} 
     &
-    = \frac{g+1}{2}p + \frac{g-1}{2}|p| + (g+1)q_i + (g-1)|q_i|
+    = -\frac{g+1}{2}p + \frac{g-1}{2}|-p| + (g+1)q_i + (g-1)|q_i|
     \,, 
     \text{ and }
     i=1,2,3
     \,.
+\end{align*}
+
+The momentum equation (with vanishing rhs i.e. no water pressure, no gravity) is $\nabla \cdot \bb{\sigma} = 0$, which when integrated over a square cell $\Omega$ of volume $d\Omega = \Delta x \cdot \Delta y$, with faces labelled by east, west, north, and south, reads
+\begin{align*}
+    \int_\Omega \nabla \cdot \bb{\sigma} d\Omega 
+    & = \int_{\p \Omega} \bb{\sigma} \cdot \bb{n} dA
+    \\
+    & = \int_{\p \Omega_e} \sigma_{11} dA_e
+    - \int_{\p \Omega_w} \sigma_{11} dA_w
+    + \int_{\p \Omega_n} \sigma_{22} dA_n
+    - \int_{\p \Omega_s} \sigma_{22} dA_s
+\end{align*}
+where the outward pointing normal vector to $\p\Omega_e$ is $n_x = (1,0,0)$ to $\p\Omega_w$ is $-n_x$, to $\p\Omega_n$ is $n_y=(0,1,0)$, and to $\p\Omega_s$ is $-n_y$. Following the setup depicted in Fig. \ref{fig:grid} we get
+\begin{align*}
+    \int_{\p \Omega_e} \sigma_{11} dA_e 
+    &\simeq 
+    \int_{-\Delta y/2}^{\Delta y/2} \sigma_{11}|_e dy = \sigma_{11;\,  i+1/2,j} \, \Delta y
+    \,,
+    \\
+    \int_{\p \Omega_w} \sigma_{11} dA_w 
+    &\simeq 
+    \int_{-\Delta y/2}^{\Delta y/2} \sigma_{11}|_w dy = \sigma_{11;\,  i-1/2,j} \, \Delta y
+    \\
+    \int_{\p \Omega_n} \sigma_{22} dA_n 
+    &\simeq 
+    \int_{-\Delta x/2}^{\Delta x/2} \sigma_{22}|_n dy = \sigma_{22;\,  i,j+1/2} \, \Delta x
+    \,,
+    \\
+    \int_{\p \Omega_s} \sigma_{22} dA_s 
+    &\simeq 
+    \int_{-\Delta x/2}^{\Delta x/2} \sigma_{22}|_s dy = \sigma_{22;\,  i,j-1/2} \, \Delta x
+    \,,
+\end{align*}
+and the momenum equation reads
+\begin{align*}
+    \left(\sigma_{11;\,  i+1/2,j}-\sigma_{11;\,  i-1/2,j}\right) \, \Delta y
+    +
+    \left(\sigma_{22;\,  i,j+1/2}-\sigma_{22;\,  i,j-1/2} \right) \, \Delta x
+    = 0 \,.
+\end{align*}
+
+In \cite{stocek2023} the pressure $p$ is evolved as an independent variable (it is a function of the elastic displacement), and the incompressibility equation is enforced (as a constraint?) using a Lagrange multiplier captured by an auxiliary variable $q$. In that case, the variables are $u,w,p,q$, (in addition to the phase field), which are four, for four equations (if we do not view them in terms of components on an $x,y,$ basis; they use finite elements, so the latter is not optimal I think). Here however we use finite volume, which utilizes an $x,y$ basis, and we do take the viewpoint of components on this basis for $\bb{u},\bb{w}$, which are four independent components. Therefore, we are going to try and solve these four equations (momentum, viscosity, mass, incompressibility) for the four total components $u_1, u_2,w_1, w_2$. 
+
+To achieve this, we want to write this system of equations in the form $\bb{M} \bb{U} = \bb{b}$ with $\bb{U} = (u_1, u_2, w_1, w_2)^T$. The unknowns are functions of $x,y$ at the continuum, which can be approximated by matrices of size $N_x \times N_y$ at the discrete level. To be able to write the system in a form where we apply matrix inversion to $\bb{M}$, the unknowns are cast into vectors with column or row major (that is read the first column, then the second, etc, and write it as a vector of size $N_x \cdot N_y$). Then $\bb{M}$ is a matrix of size $N_{tot} \times N_{tot}$ with $N_{tot}:= N_x \cdot N_y$. To apply this logic, we want to write the equations as a linear system for $u_1,u_2,w_1,w_2$, which means that $\sigma_{11}, \sigma_{22}$ have to be linearized. When we apply the fixed point iteration, the non-linear coefficients are calculated using the solution of the previous iteration, as in the 1d case.
+
+We have
+\begin{align*}
+    -p >0 \text{ and } q_i >0 &: \sigma_{ii} = - g\, p + 2g \, q_i
+    \,,
+    \\
+    -p >0 \text{ and } q_i \leq 0 &: \sigma_{ii} = - g\, p + 2 \, q_i
+    \\
+    -p \leq 0 \text{ and } q_i >0 &: \sigma_{ii} = - p + 2g \, q_i
+    \\
+    -p \leq 0 \text{ and } q_i \leq 0 &: \sigma_{ii} = - p + 2\, q_i
+    \,,
+\end{align*}
+with  $g=g(d)$
+and after linearization and multiplication with $\bar{f}$ (defined below; it can take zero values)
+\begin{align*}
+    &
+    q_1 = r_{1x} \, a_{1x} + r_{1y} \, a_{1y} + r_{2x} \, a_{2x} + r_{2y} \, a_{2y}
+    \,,
+    \\
+    & 
+    r_{1x} = \frac{1}{6} - \frac{\bar{a}_{1x}-\bar{a}_{2y}}{2\bar{f}}
+    \,, \quad
+    r_{1y} = - \frac{\bar{a}_{1y}+\bar{a}_{2x}}{2\bar{f}}
+    \, \quad
+    r_{2x} = - \frac{\bar{a}_{1y}+\bar{a}_{2x}}{2\bar{f}}
+    \,, \quad
+    r_{2y} = \frac{1}{6} + \frac{\bar{a}_{1x}-\bar{a}_{2y}}{2\bar{f}}
+    \,,
+    \\
+    &
+    \bar{f} = \left[\left(\bar{a}_{1x}-\bar{a}_{2y}\right)^2 + 
+    \left(\bar{a}_{1y}+\bar{a}_{2x}\right)^2\right]^{1/2}
+    \,,
+    \\
+    &
+    q_2 = s_{1x} \, a_{1x} + s_{1y} \, a_{1y} + s_{2x} \, a_{2x} + s_{2y} \, a_{2y}
+    = r_{2y} \, a_{1x} - r_{1y} \, a_{1y} -r_{2x} \, a_{2x} + r_{1x} \, a_{2y}
+    \,,
+    \\
+    & 
+    s_{1x} = \frac{1}{6} + \frac{\bar{a}_{1x}-\bar{a}_{2y}}{2\bar{f}} = r_{2y}
+    \,, \quad
+    s_{1y} = \frac{\bar{a}_{1y}+\bar{a}_{2x}}{2\bar{f}} = -r_{1y}
+    \,
+    \\
+    &
+    s_{2x} = \frac{\bar{a}_{1y}+\bar{a}_{2x}}{2\bar{f}} = -r_{2x}
+    \,, \quad
+    s_{2y} = \frac{1}{6} - \frac{\bar{a}_{1x}-\bar{a}_{2y}}{2\bar{f}} = r_{1x}
+    \,,
+\end{align*}
+where here $\bar{\cdot}$ denotes a known coefficient, e.g one that is obtained from the previous fixed point iteration. We have to be careful when $\bar{f}=0$ (i.e. when we start with zero displacements, this is the case). Not sure if my following calculation is correct, but let's try: assume that $\bar{a}_{1y}+\bar{a}_{2x}$ and $\bar{a}_{1x}-\bar{a}_{2y}$ got to zero at the same rate (linear) and from the same semi-axis (positive; debatable). Then replace them with $\epsilon$ and take the limit to $\epsilon^+ \rightarrow 0$. Then 
+\begin{align*}
+    \frac{\bar{a}_{1y}+\bar{a}_{2x}}{\bar{f}} \sim \frac{\epsilon}{(\epsilon^2 + \epsilon^2)^{1/2}}
+    = 2^{-1/2}
+\end{align*}
+and similarly for $(\bar{a}_{1x}-\bar{a}_{2y})/\bar{f}$ which means that when $\bar{f}=0$ we will used
+\begin{align*}
+    r_{1x} = \frac{1}{6} - \frac{1}{2^{3/2}}
+    \,, \quad
+    r_{1y} = - \frac{1}{2^{3/2}}
+    \, \quad
+    r_{2x} = - \frac{1}{2^{3/2}}
+    \,, \quad
+    r_{2y} = \frac{1}{6} + \frac{1}{2^{3/2}}
+    \,,
 \end{align*}
 
 \tg{HERE}
