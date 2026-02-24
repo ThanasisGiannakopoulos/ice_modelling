@@ -340,7 +340,7 @@ The quantity $D$ that needs to be evaluated on staggered points, is given by
     \Gamma := \frac{2 A (\rho g)^3}{5}
     \,.
 \end{align*}
-On a staggered point with $i + 1/2,j$ the term $\p_x$ is approximated by a centred FD using the points $i,j$ and $i + 1,j$ (with spacing $\Delta x/2$), while the $\p_y$ term by a centred FD using the staggered points $i + 1/2, j + 1$ and $i + 1/2, j + 1$ (with spacing $2 \Delta y$):
+On a staggered point with $i + 1/2,j$ the term $\p_x$ is approximated by a centred FD using the points $i,j$ and $i + 1,j$ (with spacing $\Delta x/2$), while the $\p_y$ term by a centred FD using the staggered points $i + 1/2, j + 1$ and $i + 1/2, j - 1$ (with spacing $2 \Delta y$):
 \begin{align*}
     \p_x h|_{i+1/2,j}
     &\simeq
@@ -349,7 +349,7 @@ On a staggered point with $i + 1/2,j$ the term $\p_x$ is approximated by a centr
     \\
     \p_y h|_{i+1/2,j}
     &\simeq
-    \frac{h_{i+1/2,j+1}-h_{i+1/2,j-2}}{2 \Delta y} + O(\Delta y^2)
+    \frac{h_{i+1/2,j+1}-h_{i+1/2,j-1}}{2 \Delta y} + O(\Delta y^2)
     \,,
 \end{align*}
 and similarly for the other staggered points. The approximations we use induce the following truncation errors
@@ -1812,7 +1812,7 @@ and
 The spectrally decomposed deviatoric elastic strain tensor is
 \begin{align*}
     &
-    2 \dev(\nabla_s \bb{a})
+    \text{spec}\left[ 2 \dev(\nabla_s \bb{a}) \right]
     = 
     \text{diag} \left(2 q_1, 2 q_2, 2 q_3 \right)
     \,,
@@ -1864,38 +1864,49 @@ The momentum equation (with vanishing rhs i.e. no water pressure, no gravity) is
 \begin{align*}
     \int_\Omega \nabla \cdot \bb{\sigma} d\Omega 
     & = \int_{\p \Omega} \bb{\sigma} \cdot \bb{n} dA
-    \\
+\end{align*}
+where the lhs yields 3 equations ($\nabla$ can be represented by a vector and $\bb{\sigma}$ a matrix), so the rhs the same. We denote by $\bb{\sigma}_i$ the rows of (the spectrally decomposed; diagoal) $\bb{\sigma}$ to obtain
+\begin{align*}
+    \int_{\p \Omega} \bb{\sigma}_1 \cdot \bb{n} dA
     & = \int_{\p \Omega_e} \sigma_{11} dA_e
     - \int_{\p \Omega_w} \sigma_{11} dA_w
-    + \int_{\p \Omega_n} \sigma_{22} dA_n
+    \\
+    \int_{\p \Omega} \bb{\sigma}_2 \cdot \bb{n} dA
+    & = \int_{\p \Omega_n} \sigma_{22} dA_n
     - \int_{\p \Omega_s} \sigma_{22} dA_s
 \end{align*}
 where the outward pointing normal vector to $\p\Omega_e$ is $n_x = (1,0,0)$ to $\p\Omega_w$ is $-n_x$, to $\p\Omega_n$ is $n_y=(0,1,0)$, and to $\p\Omega_s$ is $-n_y$. Following the setup depicted in Fig. \ref{fig:grid} we get
 \begin{align*}
     \int_{\p \Omega_e} \sigma_{11} dA_e 
     &\simeq 
-    \int_{-\Delta y/2}^{\Delta y/2} \sigma_{11}|_e dy = \sigma_{11;\,  i+1/2,j} \, \Delta y
+    \int_{-\Delta y/2}^{\Delta y/2} \sigma_{11}|_e dy = \sigma_{11| i+\frac{1}{2},j} \, \Delta y
     \,,
     \\
     \int_{\p \Omega_w} \sigma_{11} dA_w 
     &\simeq 
-    \int_{-\Delta y/2}^{\Delta y/2} \sigma_{11}|_w dy = \sigma_{11;\,  i-1/2,j} \, \Delta y
+    \int_{-\Delta y/2}^{\Delta y/2} \sigma_{11}|_w dy = \sigma_{11| i-\frac{1}{2},j} \, \Delta y
     \\
     \int_{\p \Omega_n} \sigma_{22} dA_n 
     &\simeq 
-    \int_{-\Delta x/2}^{\Delta x/2} \sigma_{22}|_n dy = \sigma_{22;\,  i,j+1/2} \, \Delta x
+    \int_{-\Delta x/2}^{\Delta x/2} \sigma_{22}|_n dy = \sigma_{22| i,j+\frac{1}{2}} \, \Delta x
     \,,
     \\
     \int_{\p \Omega_s} \sigma_{22} dA_s 
     &\simeq 
-    \int_{-\Delta x/2}^{\Delta x/2} \sigma_{22}|_s dy = \sigma_{22;\,  i,j-1/2} \, \Delta x
+    \int_{-\Delta x/2}^{\Delta x/2} \sigma_{22}|_s dy = \sigma_{22| i,j-\frac{1}{2}} \, \Delta x
     \,,
 \end{align*}
-and the momenum equation reads
+and the momentum equations read
+%
+\tg{I think; I have 2 eqs for the 2 unknowns $a_1, a_2$.}
+%
 \begin{align*}
-    \left(\sigma_{11;\,  i+1/2,j}-\sigma_{11;\,  i-1/2,j}\right) \, \Delta y
-    +
-    \left(\sigma_{22;\,  i,j+1/2}-\sigma_{22;\,  i,j-1/2} \right) \, \Delta x
+    \left(\sigma_{11| i+\frac{1}{2},j}-\sigma_{11| i-\frac{1}{2},j}\right) \, \Delta y
+    &
+    = 0 
+    \\
+    \left(\sigma_{22| i,j+\frac{1}{2}}-\sigma_{22| i,j-\frac{1}{2}} \right) \, \Delta x
+    &
     = 0 \,.
 \end{align*}
 
@@ -1916,7 +1927,7 @@ We have
     \,,
 \end{align*}
 with  $g=g(d)$
-and after linearization and multiplication with $\bar{f}$ (defined below; it can take zero values)
+and after linearization
 \begin{align*}
     &
     q_1 = r_{1x} \, a_{1x} + r_{1y} \, a_{1y} + r_{2x} \, a_{2x} + r_{2y} \, a_{2y}
@@ -1968,7 +1979,82 @@ and similarly for $(\bar{a}_{1x}-\bar{a}_{2y})/\bar{f}$ which means that when $\
     r_{2x} = - \frac{1}{2^{3/2}}
     \,, \quad
     r_{2y} = \frac{1}{6} + \frac{1}{2^{3/2}}
+    \,.
+\end{align*}
+To evaluate the momentum equations we need to evaluate $\sigma_{11}$ and $\sigma_{22}$ on the faces of a cell labelled by $i,j$. This involves $p,q_1,q_2$ which have the following schematic operational form
+\begin{align*}
+    Q \p_x f + P \p_y f
+    \,.
+\end{align*}
+Evaluation of this on these faces (using centred FD operators) read
+\begin{align*}
+    \left( Q \p_x f + P \p_y f \right)_{i+\frac{1}{2},j}
+    & = 
+    Q_{i+\frac{1}{2},j} \frac{f_{i+1,j} - f_{i,j}}{\Delta x}
+    + P_{i+\frac{1}{2},j} \frac{f_{i+\frac{1}{2},j+1} - f_{i+\frac{1}{2},j-1}}{2 \Delta y}
+    \\
+    & = Q_{i+\frac{1}{2},j} \frac{f_{i+1,j}-f_{i,j}}{\Delta x}
+    + P_{i+\frac{1}{2},j} \frac{f_{i+1,j+1}+f_{i,j+1}-f_{i+1,j-1}-f_{i,j-1}}{4 \Delta y}
     \,,
+    \\
+    \left( Q \p_x f + P \p_y f \right)_{i-\frac{1}{2},j}
+    & = Q_{i-\frac{1}{2},j} \frac{f_{i,j}-f_{i-1,j}}{\Delta x}
+    + P_{i-\frac{1}{2},j} \frac{f_{i,j+1}+f_{i-1,j+1}-f_{i,j-1}-f_{i-1,j-1}}{4 \Delta y}
+    \,,
+    \\
+    \left( Q \p_x f + P \p_y f \right)_{i,j+\frac{1}{2}}
+    & = Q_{i,j+\frac{1}{2}} \frac{f_{i+1,j+1}+f_{i+1,j}-f_{i-1,j+1}-f_{i-1,j}}{4 \Delta x}
+    + P_{i,j+\frac{1}{2}} \frac{f_{i,j+1}-f_{i,j}}{\Delta y}
+    \,,
+    \\
+    \left( Q \p_x f + P \p_y f \right)_{i,j-\frac{1}{2}}
+    & = Q_{i,j-\frac{1}{2}} \frac{f_{i+1,j}+f_{i+1,j-1}-f_{i-1,j}-f_{i-1,j-1}}{4 \Delta x}
+    + P_{i,j-\frac{1}{2}} \frac{f_{i,j}-f_{i,j-1}}{\Delta y}
+    \,.
+\end{align*}
+We use masks to capture $g$, that is $m_p=1$ if $p \leq0$ and $m_p = g$ otherwise, etc. Then we have
+\begin{align*}
+    \sigma_{11} 
+    & = Q_{11} \p_x a_1 + P_{11} \p_y a_1 + Q_{12} \p_x a_2 + P_{12} \p_y a_2
+    \,,
+\end{align*}
+with
+\begin{align*}
+    Q_{11} 
+    & = m_p \left(\lambda + \frac{2\mu}{3} \right) + m_{q_1} r_{1x}
+    \,, \quad
+    P_{11} = 2 m_{q_1} r_{1y}
+    \,,
+    \\
+    Q_{12}
+    & = 2 m_{q_1} r_{2x} \,, \quad
+    P_{12} = m_p \left(\lambda + \frac{2\mu}{3} \right) + m_{q_1} r_{2y}
+    \,,
+\end{align*}
+and the first momentum equation 
+\begin{align*}
+    \left(\sigma_{11| i+\frac{1}{2},j}-\sigma_{11| i-\frac{1}{2},j}\right) \, \Delta y
+    &
+    = 0 
+\end{align*}
+reads (after dropping $\Delta y$)
+\begin{align*}
+    &
+    + \frac{Q_{11|i-\frac{1}{2},j}}{\Delta x} a_{1|i-1,j}
+    - \frac{Q_{11|i+\frac{1}{2},j}+Q_{11|i-\frac{1}{2},j}}{\Delta x} a_{1|i,j}
+    + \frac{Q_{11|i+\frac{1}{2},j}}{\Delta x} a_{1|i+1,j}
+    \\
+    &
+    + \frac{P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i-1,j-1}
+    - \frac{P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i-1,j+1}
+    + \frac{P_{11|i-\frac{1}{2},j}-P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i,j-1}
+    \\
+    &
+    + \frac{P_{11|i+\frac{1}{2},j}-P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i,j+1}
+    - \frac{P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i+1,j-1}
+    + \frac{P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i+1,j+1}
+    \\
+    & = 0 
 \end{align*}
 
 \tg{HERE}
