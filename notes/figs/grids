@@ -11,7 +11,7 @@
 \node[draw, minimum width=1cm, minimum height=1cm] (n10) at (4,0) {\tiny{i,j-1}};
 
 % (i=2, j=0)
-\node[draw, minimum width=1cm, minimum height=1cm] (n20) at (8,0) {\tiny{i+1,j}};
+\node[draw, minimum width=1cm, minimum height=1cm] (n20) at (8,0) {\tiny{i+1,j-1}};
 
 % ---------------------------
 % Row j = 1

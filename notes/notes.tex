@@ -2040,22 +2040,97 @@ and the first momentum equation
 reads (after dropping $\Delta y$)
 \begin{align*}
     &
+    + \frac{P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{1|i-1,j-1}
     + \frac{Q_{11|i-\frac{1}{2},j}}{\Delta x} a_{1|i-1,j}
+    - \frac{P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{1|i-1,j+1}
+    \\
+    &
+    + \frac{P_{11|i-\frac{1}{2},j}-P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{1|i,j-1}
     - \frac{Q_{11|i+\frac{1}{2},j}+Q_{11|i-\frac{1}{2},j}}{\Delta x} a_{1|i,j}
+    + \frac{P_{11|i+\frac{1}{2},j}-P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{1|i,j+1}
+    \\
+    &
+    - \frac{P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{1|i+1,j-1}
     + \frac{Q_{11|i+\frac{1}{2},j}}{\Delta x} a_{1|i+1,j}
+    + \frac{P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{1|i+1,j+1}
     \\
     &
-    + \frac{P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i-1,j-1}
-    - \frac{P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i-1,j+1}
-    + \frac{P_{11|i-\frac{1}{2},j}-P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i,j-1}
+    + \frac{P_{12|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i-1,j-1}
+    + \frac{Q_{12|i-\frac{1}{2},j}}{\Delta x} a_{2|i-1,j}
+    - \frac{P_{12|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i-1,j+1}
     \\
     &
-    + \frac{P_{11|i+\frac{1}{2},j}-P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i,j+1}
-    - \frac{P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i+1,j-1}
-    + \frac{P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i+1,j+1}
+    + \frac{P_{12|i-\frac{1}{2},j}-P_{12|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i,j-1}
+    - \frac{Q_{12|i+\frac{1}{2},j}+Q_{12|i-\frac{1}{2},j}}{\Delta x} a_{2|i,j}
+    + \frac{P_{12|i+\frac{1}{2},j}-P_{12|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i,j+1}
+    \\
+    &
+    - \frac{P_{12|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i+1,j-1}
+    + \frac{Q_{12|i+\frac{1}{2},j}}{\Delta x} a_{2|i+1,j}
+    + \frac{P_{12|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i+1,j+1}
     \\
     & = 0 
 \end{align*}
+Similarly for $\sigma_{22}$
+\begin{align*}
+    \sigma_{22} 
+    & = Q_{21} \p_x a_1 + P_{21} \p_y a_1 + Q_{22} \p_x a_2 + P_{22} \p_y a_2
+    \,,
+\end{align*}
+with
+\begin{align*}
+    Q_{21} 
+    & = m_p \left(\lambda + \frac{2\mu}{3} \right) + m_{q_2} r_{2y}
+    \,, \quad
+    P_{21} = -2 m_{q_2} r_{1y}
+    \,,
+    \\
+    Q_{22}
+    & = -2 m_{q_2} r_{2x} \,, \quad
+    P_{22} = m_p \left(\lambda + \frac{2\mu}{3} \right) + m_{q_2} r_{1x}
+    \,,
+\end{align*}
+and the second momentum equation 
+\begin{align*}
+    \left(\sigma_{22| i,j+\frac{1}{2}}-\sigma_{22| i,j-\frac{1}{2}}\right) \, \Delta x
+    &
+    = 0 
+\end{align*}
+yields (after dropping $\Delta x$)
+\begin{align*}
+    &
+    + \frac{Q_{21|i,j-\frac{1}{2}}}{4 \Delta x} a_{1|i-1,j-1}
+    + \frac{Q_{21|i,j-\frac{1}{2}}-Q_{21|i,j+\frac{1}{2}}}{4 \Delta x} a_{1|i-1,j}
+    - \frac{Q_{21|i,j+\frac{1}{2}}}{4 \Delta x} a_{1|i-1,j+1}
+    \\
+    &
+    + \frac{P_{21|i,j-\frac{1}{2}}}{\Delta y} a_{1|i,j-1}
+    - \frac{P_{21|i,j+\frac{1}{2}}+P_{21|i,j-\frac{1}{2}}}{\Delta y} a_{1|i,j}
+    + \frac{P_{21|i,j+\frac{1}{2}}}{\Delta y} a_{1|i,j+1}
+    \\
+    &
+    - \frac{Q_{21|i,j-\frac{1}{2}}}{4 \Delta x} a_{1|i+1,j-1}
+    + \frac{Q_{21|i,j+\frac{1}{2}}-Q_{21|i,j-\frac{1}{2}}}{4 \Delta x} a_{1|i+1,j}
+    + \frac{Q_{21|i,j+\frac{1}{2}}}{4 \Delta x} a_{1|i+1,j+1}
+    \\
+    &
+    + \frac{Q_{22|i,j-\frac{1}{2}}}{4 \Delta x} a_{2|i-1,j-1}
+    + \frac{Q_{22|i,j-\frac{1}{2}}-Q_{22|i,j+\frac{1}{2}}}{4 \Delta x} a_{2|i-1,j}
+    - \frac{Q_{22|i,j+\frac{1}{2}}}{4 \Delta x} a_{2|i-1,j+1}
+    \\
+    &
+    + \frac{P_{22|i,j-\frac{1}{2}}}{\Delta y} a_{2|i,j-1}
+    - \frac{P_{22|i,j+\frac{1}{2}}+P_{22|i,j-\frac{1}{2}}}{\Delta y} a_{2|i,j}
+    + \frac{P_{22|i,j+\frac{1}{2}}}{\Delta y} a_{2|i,j+1}
+    \\
+    &
+    - \frac{Q_{22|i,j-\frac{1}{2}}}{4 \Delta x} a_{2|i+1,j-1}
+    + \frac{Q_{22|i,j+\frac{1}{2}}-Q_{22|i,j-\frac{1}{2}}}{4 \Delta x} a_{2|i+1,j}
+    + \frac{Q_{22|i,j+\frac{1}{2}}}{4 \Delta x} a_{2|i+1,j+1}
+    \\
+    & = 0 
+\end{align*}
+In the $x$ direction we want to apply Dirichlet boundary conditions and Neumann on the $y$.
 
 \tg{HERE}
 
