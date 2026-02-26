@@ -1730,49 +1730,25 @@ Some comments/observations from numerical experiments:
 %     \item solve the 3rd eq with the data on the initial timestep to get $d$, which will be used in the next timestep?
 % \end{enumerate}
 
-\subsection{2d viscoelastic plate}
+\subsection{2d elastic plate}
 
-The total and viscous discplacements in this case are 
+The total discplacement is only elastic and denoted as
 \begin{align*}
-    \bb{u} = \left( u_1(t,x,y), u_2(t,x,y), 0\right)
-    \,, \quad
-    \bb{w} = \left( w_1(t,x,y), w_2(t,x,y), 0\right)
-    \,,
+    \bb{a} = \left( a_1(t,x,y), a_2(t,x,y), 0\right)
 \end{align*}
-and the resulting strain tensors and their traces are
+with $a_1$ the displacement in the x direction and $a_2$ in y. The resulting strain tensor and its trace are
 \begin{align*}
-    &
-    \bb{\epsilon} = 
-    \begin{pmatrix}
-        \p_x u_1 & \frac{\p_x u_2 + \p_y u_1}{2} & 0 \\
-        \frac{\p_x u_2 + \p_y u_1}{2} & \p_y u_2 & 0 \\
-        0 & 0 & 0 
-    \end{pmatrix}
-    \,, \quad
-    \tr(\bb{\epsilon}) = \p_x u_1 + \p_y u_2
-    \\
-    &
-    \bb{\epsilon}_\varv = 
-    \begin{pmatrix}
-        \p_x w_1 & \frac{\p_x w_2 + \p_y w_1}{2} & 0 \\
-        \frac{\p_x w_2 + \p_y w_1}{2} & \p_y w_2 & 0 \\
-        0 & 0 & 0 
-    \end{pmatrix}
-    \,, \quad
-    \tr(\bb{\epsilon})_e = \p_x w_1 + \p_y w_2
-    \\
-    &
     \bb{\epsilon}_e = 
     \begin{pmatrix}
-        \p_x (u_1 - w_1) & \frac{\p_x (u_2-w_2) + \p_y (u_1-w_1)}{2} & 0 \\
-        \frac{\p_x (u_2-w_2) + \p_y (u_1-w_1)}{2} & \p_y (u_2-w_2) & 0 \\
+        \p_x a_1 & \frac{\p_x a_2 + \p_y a_1}{2} & 0 \\
+        \frac{\p_x a_2 + \p_y a_1}{2} & \p_y a_2 & 0 \\
         0 & 0 & 0 
     \end{pmatrix}
     \,, \quad
-    \tr(\bb{\epsilon})_e = \p_x (u_1-w_1) + \p_y (u_2-w_2)
+    \tr(\bb{\epsilon})_e = \p_x a_1 + \p_y a_2
     \,.
 \end{align*}
-We use the notation $u_{1x}:=\p_x u_1$ etc. for shorthand, and $a:=u-x$ for the elastic displacement. The deviatoric part of the elastic strain tensor is
+We use the notation $a_{1x}:=\p_x a_1$ etc. for shorthand. The deviatoric part of the elastic strain tensor is
 \begin{align*}
     \dev(\bb{\epsilon}_e) = \bb{\epsilon}_e - \frac{1}{3} \tr(\bb{\epsilon}_e) \mathbb{1}
     =
@@ -1812,12 +1788,13 @@ and
 The spectrally decomposed deviatoric elastic strain tensor is
 \begin{align*}
     &
-    \text{spec}\left[ 2 \dev(\nabla_s \bb{a}) \right]
+    \text{spec}\left[ \dev(\bb{\epsilon}_e) \right]
     = 
-    \text{diag} \left(2 q_1, 2 q_2, 2 q_3 \right)
+    \text{diag} \left(q_1, q_2, q_3 \right)
     \,,
-    \\
-    \text{with }
+\end{align*}
+with eigenvalues
+\begin{align*}
     &
     q_1 = \frac{a_{1x}+a_{2y}}{6} -
     \frac{1}{2}
@@ -1837,28 +1814,56 @@ The spectrally decomposed deviatoric elastic strain tensor is
     q_3 = \frac{-a_{1x} + a_{2y}}{3}
     \,.
 \end{align*}
-Then we have
+$\text{spec}\left[ \dev(\bb{\epsilon}_e) \right]$ is diagonal in the basis of the principal directions, i.e. directions where stresses are only tensile or compressive, and there is no shear stress. Its relation to $\dev(\bb{\epsilon}_e)$ in the $x,y$ basis is
 \begin{align*}
-    \bb{\sigma} 
+   \dev(\bb{\epsilon}_e) = \bb{S} \, \text{spec}\left[ \dev(\bb{\epsilon}_e) \right] \, \bb{S}^T
+   \,,
+\end{align*}
+where conveniently $\bb{S}^T$ can be used instead of $\bb{S}^{-1}$, because $\dev(\bb{\epsilon}_e)$ is symmetric.
+
+Along the principal directions (and not in $x,y$) the stress tensor is written
+\begin{align*}
+    \hat{\bb{\sigma}} 
     &
-    = g(d) \bb{\sigma}_e^+ + \bb{\sigma}_e^-
-    = g(d) \left[ \langle -p \rangle_+ \mathbb{1} + 2 \dev(\nabla_s \bb{a})_+ \right]
+    = g(d) \hat{\bb{\sigma}}_e^+ + \hat{\bb{\sigma}}_e^-
+    = g(d) \left[ \langle -p \rangle_+ \mathbb{1} + 2 \dev(\bb{\epsilon}_e)_+ \right]
     + 
-    \left[ \langle -p \rangle_- \mathbb{1} + 2 \dev(\nabla_s \bb{a})_- \right]
+    \left[ \langle -p \rangle_- \mathbb{1} + 2 \dev(\bb{\epsilon}_e)_- \right]
     \\
     &
-    = \text{diag} \left(\sigma_{11}, \sigma_{22}, \sigma_{33} \right)
-    \\
-    \text{with}
-    \\
-    \sigma_{ii} 
+    = \text{diag} \left(\hat{\sigma}_{11}, \hat{\sigma}_{22}, \hat{\sigma}_{33} \right)
+\end{align*}
+where $\hat{.}$ is used to denote the principal direction basis, and
+\begin{align*}
+    \hat{\sigma}_{ii} 
     &
     = -\frac{g+1}{2}p + \frac{g-1}{2}|-p| + (g+1)q_i + (g-1)|q_i|
+    \\
+    &
+    = - m_p \, p + 2 m_{q_i} \, q_i 
     \,, 
-    \text{ and }
+    \text{ for }
     i=1,2,3
-    \,.
+    \,,
 \end{align*}
+and $m_p, m_{q_i}$ are masks that track tensile/compressive split, with
+\begin{align*}
+    m_p 
+    &= 1 \text{ if } p \leq 0 
+    \,, \quad 
+    m_p = g \text{ if } p > 0 
+    \\
+    m_{q_i} 
+    &= 1 \text{ if } q_i \leq 0 
+    \,, \quad 
+    m_{q_i} = g \text{ if } q_i > 0 
+    \,,
+\end{align*}
+and $g(d) = (1 - d)^2$ the degradation function informed by the phase field.
+
+We drop the $z$ component for convenience in what follows. We want to use finite volume methods in our discretization, on the Cartesian $x,y$ basis. To do that, we need the stress tensor that includes the tensile/compressive split wich utilized the principal directions, transformed back into $x,y$.
+
+\tg{HERE}
 
 The momentum equation (with vanishing rhs i.e. no water pressure, no gravity) is $\nabla \cdot \bb{\sigma} = 0$, which when integrated over a square cell $\Omega$ of volume $d\Omega = \Delta x \cdot \Delta y$, with faces labelled by east, west, north, and south, reads
 \begin{align*}
@@ -2135,7 +2140,49 @@ yields (after dropping $\Delta x$)
 \end{align*}
 In the $x$ direction we want to apply Dirichlet boundary conditions and Neumann on the $y$.
 
-\tg{HERE}
+
+\subsection{2d viscoelastic plate}
+
+The total and viscous discplacements in this case are 
+\begin{align*}
+    \bb{u} = \left( u_1(t,x,y), u_2(t,x,y), 0\right)
+    \,, \quad
+    \bb{w} = \left( w_1(t,x,y), w_2(t,x,y), 0\right)
+    \,,
+\end{align*}
+and the resulting strain tensors and their traces are
+\begin{align*}
+    &
+    \bb{\epsilon} = 
+    \begin{pmatrix}
+        \p_x u_1 & \frac{\p_x u_2 + \p_y u_1}{2} & 0 \\
+        \frac{\p_x u_2 + \p_y u_1}{2} & \p_y u_2 & 0 \\
+        0 & 0 & 0 
+    \end{pmatrix}
+    \,, \quad
+    \tr(\bb{\epsilon}) = \p_x u_1 + \p_y u_2
+    \\
+    &
+    \bb{\epsilon}_\varv = 
+    \begin{pmatrix}
+        \p_x w_1 & \frac{\p_x w_2 + \p_y w_1}{2} & 0 \\
+        \frac{\p_x w_2 + \p_y w_1}{2} & \p_y w_2 & 0 \\
+        0 & 0 & 0 
+    \end{pmatrix}
+    \,, \quad
+    \tr(\bb{\epsilon})_e = \p_x w_1 + \p_y w_2
+    \\
+    &
+    \bb{\epsilon}_e = 
+    \begin{pmatrix}
+        \p_x (u_1 - w_1) & \frac{\p_x (u_2-w_2) + \p_y (u_1-w_1)}{2} & 0 \\
+        \frac{\p_x (u_2-w_2) + \p_y (u_1-w_1)}{2} & \p_y (u_2-w_2) & 0 \\
+        0 & 0 & 0 
+    \end{pmatrix}
+    \,, \quad
+    \tr(\bb{\epsilon})_e = \p_x (u_1-w_1) + \p_y (u_2-w_2)
+    \,.
+\end{align*}
 
 then add gravity, pressure, tests against Miehe's elastic limits
 % \subsection{Coupled with 1d SSA}
