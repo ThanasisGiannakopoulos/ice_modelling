@@ -1932,9 +1932,7 @@ The unknowns are functions of $x,y$ at the continuum, which can be approximated 
 \end{align*}
 where the coefficients $Q_{lk1}, P_{lk1}, Q_{lk2}, P_{lk2}$ can be non-linear function of $a1,a2$. When we apply the fixed point iteration they are calculated using the solution of the previous iteration, as in the 1d case. They also carry the information form the energy split that informs the location that the degredation function is applied, by containing the masks $m_p, m_{q_i}$.
 
-\tg{HERE}
-
-To evaluate the momentum equations we need to evaluate $\sigma_{11}, \sigma_{12}$ and $\sigma_{22}$ on the faces of a cell labelled by $i,j$. Their components have the following schematic operational form (for the functions $a_1(x,y), a_2(x,y)$)
+To evaluate the momentum equations we need to evaluate $\sigma_{11}, \sigma_{12}$ and $\sigma_{22}$ on the faces of a cell labelled by $i,j$. Their components have the following schematic operational form (for the functions $a_1(x,y), a_2(x,y)$ instead of $f$)
 \begin{align*}
     Q \p_x f + P \p_y f
     \,.
@@ -1969,102 +1967,319 @@ Evaluation of this on these faces (using centred FD operators) read
 The first momentum equation 
 \begin{align*}
     \left(\sigma_{11| i+\frac{1}{2},j}-\sigma_{11| i-\frac{1}{2},j}\right) \, \Delta y
+    +
+    \left(\sigma_{12| i,j+\frac{1}{2}}-\sigma_{12| i,j-\frac{1}{2}} \right) \, \Delta x
     &
-    = 0 
+    = 0
 \end{align*}
-reads (after dropping $\Delta y$)
+reads (after dividing by the cell's volume $\Delta x \Delta y$)
 \begin{align*}
     &
-    + \frac{P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{1|i-1,j-1}
-    + \frac{Q_{11|i-\frac{1}{2},j}}{\Delta x} a_{1|i-1,j}
-    - \frac{P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{1|i-1,j+1}
+    + \frac{P_{111|i-\frac{1}{2},j} + Q_{121|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} 
+    % a_{1|i-1,j-1}
+    % + \frac{Q_{121|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} 
+    a_{1|i-1,j-1}
     \\
     &
-    + \frac{P_{11|i-\frac{1}{2},j}-P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{1|i,j-1}
-    - \frac{Q_{11|i+\frac{1}{2},j}+Q_{11|i-\frac{1}{2},j}}{\Delta x} a_{1|i,j}
-    + \frac{P_{11|i+\frac{1}{2},j}-P_{11|i-\frac{1}{2},j}}{4 \Delta y} a_{1|i,j+1}
+    + 
+    \left(
+        \frac{Q_{111|i-\frac{1}{2},j}}{\Delta x^2} 
+        % a_{1|i-1,j}
+        + \frac{Q_{121|i,j-\frac{1}{2}}-Q_{121|i,j+\frac{1}{2}}}{4 \Delta x \Delta y}
+    \right) a_{1|i-1,j}
     \\
     &
-    - \frac{P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{1|i+1,j-1}
-    + \frac{Q_{11|i+\frac{1}{2},j}}{\Delta x} a_{1|i+1,j}
-    + \frac{P_{11|i+\frac{1}{2},j}}{4 \Delta y} a_{1|i+1,j+1}
+    - \frac{P_{111|i-\frac{1}{2},j}+Q_{121|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} 
+    % a_{1|i-1,j+1}
+    % - \frac{Q_{121|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} 
+    a_{1|i-1,j+1}
     \\
     &
-    + \frac{P_{12|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i-1,j-1}
-    + \frac{Q_{12|i-\frac{1}{2},j}}{\Delta x} a_{2|i-1,j}
-    - \frac{P_{12|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i-1,j+1}
+    + 
+    \left(
+        \frac{P_{111|i-\frac{1}{2},j}-P_{111|i+\frac{1}{2},j}}{4 \Delta x \Delta y}
+        %  a_{1|i,j-1}
+    + \frac{P_{121|i,j-\frac{1}{2}}}{\Delta y^2}
+    \right) a_{1|i,j-1}
     \\
     &
-    + \frac{P_{12|i-\frac{1}{2},j}-P_{12|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i,j-1}
-    - \frac{Q_{12|i+\frac{1}{2},j}+Q_{12|i-\frac{1}{2},j}}{\Delta x} a_{2|i,j}
-    + \frac{P_{12|i+\frac{1}{2},j}-P_{12|i-\frac{1}{2},j}}{4 \Delta y} a_{2|i,j+1}
+    -
+    \left(
+        \frac{Q_{111|i+\frac{1}{2},j}+Q_{111|i-\frac{1}{2},j}}{\Delta x^2} 
+        % a_{1|i,j}
+        + \frac{P_{121|i,j+\frac{1}{2}}+P_{121|i,j-\frac{1}{2}}}{\Delta y^2}
+    \right) a_{1|i,j}
     \\
     &
-    - \frac{P_{12|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i+1,j-1}
-    + \frac{Q_{12|i+\frac{1}{2},j}}{\Delta x} a_{2|i+1,j}
-    + \frac{P_{12|i+\frac{1}{2},j}}{4 \Delta y} a_{2|i+1,j+1}
+    +
+    \left(
+        \frac{P_{111|i+\frac{1}{2},j}-P_{111|i-\frac{1}{2},j}}{4 \Delta x \Delta y} 
+        % a_{1|i,j+1}
+        + \frac{P_{121|i,j+\frac{1}{2}}}{\Delta y^2} 
+    \right)  a_{1|i,j+1}
+    \\
+    &
+    - \frac{P_{111|i+\frac{1}{2},j}+Q_{121|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i+1,j-1}
+    % - \frac{Q_{121|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i+1,j-1}
+    \\
+    &
+    +
+    \left(
+         \frac{Q_{111|i+\frac{1}{2},j}}{\Delta x^2} 
+        % a_{1|i+1,j}
+        + \frac{Q_{121|i,j+\frac{1}{2}}-Q_{121|i,j-\frac{1}{2}}}{4 \Delta x \Delta y}
+    \right) a_{1|i+1,j}
+    \\
+    &
+    + \frac{P_{111|i+\frac{1}{2},j}+Q_{121|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i+1,j+1}
+    % + \frac{Q_{121|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i+1,j+1}
+    \\
+    &
+    + \frac{P_{112|i-\frac{1}{2},j}+Q_{122|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i-1,j-1}
+    % + \frac{Q_{122|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i-1,j-1}
+    \\
+    &
+    + 
+    \left(
+        \frac{Q_{112|i-\frac{1}{2},j}}{\Delta x^2} 
+        % a_{2|i-1,j}
+        + \frac{Q_{122|i,j-\frac{1}{2}}-Q_{122|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} 
+    \right) a_{2|i-1,j}
+    \\
+    &
+    - \frac{P_{112|i-\frac{1}{2},j}+Q_{122|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i-1,j+1}
+    % - \frac{Q_{122|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i-1,j+1}
+    \\
+    &
+    + 
+    \left( 
+        \frac{P_{112|i-\frac{1}{2},j}-P_{112|i+\frac{1}{2},j}}{4 \Delta x \Delta y} 
+        % a_{2|i,j-1}
+        + \frac{P_{122|i,j-\frac{1}{2}}}{\Delta y^2} 
+    \right) a_{2|i,j-1}
+    \\
+    &
+    -
+    \left(
+        \frac{Q_{112|i+\frac{1}{2},j}+Q_{112|i-\frac{1}{2},j}}{\Delta x^2}
+        %  a_{2|i,j}
+        + \frac{P_{122|i,j+\frac{1}{2}}+P_{122|i,j-\frac{1}{2}}}{\Delta y^2}
+    \right) a_{2|i,j}
+    \\
+    &
+    + 
+    \left(
+        \frac{P_{112|i+\frac{1}{2},j}-P_{112|i-\frac{1}{2},j}}{4 \Delta x \Delta y}
+        %  a_{2|i,j+1}
+        + \frac{P_{122|i,j+\frac{1}{2}}}{\Delta y^2}
+    \right) a_{2|i,j+1}
+    \\
+    &
+    - \frac{P_{112|i+\frac{1}{2},j}+Q_{122|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i+1,j-1}
+    % - \frac{Q_{122|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i+1,j-1}
+    \\
+    &
+    + 
+    \left(
+        \frac{Q_{112|i+\frac{1}{2},j}}{\Delta x^2}
+        % a_{2|i+1,j}
+        + \frac{Q_{122|i,j+\frac{1}{2}}-Q_{122|i,j-\frac{1}{2}}}{4 \Delta x \Delta y}
+    \right) a_{2|i+1,j}
+    \\
+    &
+    + \frac{P_{112|i+\frac{1}{2},j}+Q_{122|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i+1,j+1}
+    % + \frac{Q_{122|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i+1,j+1}
     \\
     & = 0 
 \end{align*}
-Similarly for $\sigma_{22}$
+
+
+
+Similarly,the second momentum equation 
 \begin{align*}
-    \sigma_{22} 
-    & = Q_{21} \p_x a_1 + P_{21} \p_y a_1 + Q_{22} \p_x a_2 + P_{22} \p_y a_2
-    \,,
+    \left(\sigma_{12| i+\frac{1}{2},j}-\sigma_{12| i-\frac{1}{2},j}\right) \, \Delta y
+    +
+    \left(\sigma_{22| i,j+\frac{1}{2}}-\sigma_{22| i,j-\frac{1}{2}} \right) \, \Delta x
+    &
+    = 0 \,.
 \end{align*}
-with
+yields (after dividing by $\Delta x \Delta y$)
+% \begin{align*}
+    % &
+    % + \frac{P_{121|i-\frac{1}{2},j}}{4 \Delta y \Delta x} a_{1|i-1,j-1}
+    % \\
+    % &
+    % + \frac{Q_{121|i-\frac{1}{2},j}}{\Delta x^2} a_{1|i-1,j}
+    % \\
+    % &
+    % - \frac{P_{121|i-\frac{1}{2},j}}{4 \Delta y \Delta x} a_{1|i-1,j+1}
+    % \\
+    % &
+    % + \frac{P_{121|i-\frac{1}{2},j}-P_{121|i+\frac{1}{2},j}}{4 \Delta y \Delta x} a_{1|i,j-1}
+    % \\
+    % &
+    % - \frac{Q_{121|i+\frac{1}{2},j}+Q_{121|i-\frac{1}{2},j}}{\Delta x^2} a_{1|i,j}
+    % \\
+    % &
+    % + \frac{P_{121|i+\frac{1}{2},j}-P_{121|i-\frac{1}{2},j}}{4 \Delta y \Delta x} a_{1|i,j+1}
+    % \\
+    % &
+    % - \frac{P_{121|i+\frac{1}{2},j}}{4 \Delta y \Delta x} a_{1|i+1,j-1}
+    % \\
+    % &
+    % + \frac{Q_{121|i+\frac{1}{2},j}}{\Delta x^2} a_{1|i+1,j}
+    % \\
+    % &
+    % + \frac{P_{121|i+\frac{1}{2},j}}{4 \Delta y \Delta x} a_{1|i+1,j+1}
+    % \\
+    % &
+    % + \frac{P_{122|i-\frac{1}{2},j}}{4 \Delta y \Delta x} a_{2|i-1,j-1}
+    % \\
+    % &
+    % + \frac{Q_{122|i-\frac{1}{2},j}}{\Delta x^2} a_{2|i-1,j}
+    % \\
+    % &
+    % - \frac{P_{122|i-\frac{1}{2},j}}{4 \Delta y \Delta x} a_{2|i-1,j+1}
+    % \\
+    % &
+    % + \frac{P_{122|i-\frac{1}{2},j}-P_{122|i+\frac{1}{2},j}}{4 \Delta y \Delta x} a_{2|i,j-1}
+    % \\
+    % &
+    % - \frac{Q_{122|i+\frac{1}{2},j}+Q_{122|i-\frac{1}{2},j}}{\Delta x^2} a_{2|i,j}
+    % \\
+    % &
+    % + \frac{P_{122|i+\frac{1}{2},j}-P_{122|i-\frac{1}{2},j}}{4 \Delta y \Delta x} a_{2|i,j+1}
+    % \\
+    % &
+    % - \frac{P_{122|i+\frac{1}{2},j}}{4 \Delta y \Delta x} a_{2|i+1,j-1}
+    % \\
+    % &
+    % + \frac{Q_{122|i+\frac{1}{2},j}}{\Delta x^2} a_{2|i+1,j}
+    % \\
+    % &
+    % + \frac{P_{122|i+\frac{1}{2},j}}{4 \Delta y \Delta x} a_{2|i+1,j+1}
+    % \\
+    % & = 0 
+% \end{align*}
+
 \begin{align*}
-    Q_{21} 
-    & = m_p \left(\lambda + \frac{2\mu}{3} \right) + m_{q_2} r_{2y}
-    \,, \quad
-    P_{21} = -2 m_{q_2} r_{1y}
-    \,,
-    \\
-    Q_{22}
-    & = -2 m_{q_2} r_{2x} \,, \quad
-    P_{22} = m_p \left(\lambda + \frac{2\mu}{3} \right) + m_{q_2} r_{1x}
-    \,,
-\end{align*}
-and the second momentum equation 
-\begin{align*}
-    \left(\sigma_{22| i,j+\frac{1}{2}}-\sigma_{22| i,j-\frac{1}{2}}\right) \, \Delta x
     &
-    = 0 
-\end{align*}
-yields (after dropping $\Delta x$)
-\begin{align*}
-    &
-    + \frac{Q_{21|i,j-\frac{1}{2}}}{4 \Delta x} a_{1|i-1,j-1}
-    + \frac{Q_{21|i,j-\frac{1}{2}}-Q_{21|i,j+\frac{1}{2}}}{4 \Delta x} a_{1|i-1,j}
-    - \frac{Q_{21|i,j+\frac{1}{2}}}{4 \Delta x} a_{1|i-1,j+1}
+    + \frac{P_{121|i-\frac{1}{2},j}+Q_{221|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i-1,j-1}
+    % + \frac{Q_{221|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i-1,j-1}
     \\
     &
-    + \frac{P_{21|i,j-\frac{1}{2}}}{\Delta y} a_{1|i,j-1}
-    - \frac{P_{21|i,j+\frac{1}{2}}+P_{21|i,j-\frac{1}{2}}}{\Delta y} a_{1|i,j}
-    + \frac{P_{21|i,j+\frac{1}{2}}}{\Delta y} a_{1|i,j+1}
+    + \left(
+        \frac{Q_{121|i-\frac{1}{2},j}}{\Delta x^2} 
+        % a_{1|i-1,j}
+        + \frac{Q_{221|i,j-\frac{1}{2}}-Q_{221|i,j+\frac{1}{2}}}{4 \Delta x \Delta y}
+    \right) a_{1|i-1,j}
     \\
     &
-    - \frac{Q_{21|i,j-\frac{1}{2}}}{4 \Delta x} a_{1|i+1,j-1}
-    + \frac{Q_{21|i,j+\frac{1}{2}}-Q_{21|i,j-\frac{1}{2}}}{4 \Delta x} a_{1|i+1,j}
-    + \frac{Q_{21|i,j+\frac{1}{2}}}{4 \Delta x} a_{1|i+1,j+1}
+    - \frac{P_{121|i-\frac{1}{2},j}+Q_{221|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i-1,j+1}
+    % - \frac{Q_{221|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i-1,j+1}
     \\
     &
-    + \frac{Q_{22|i,j-\frac{1}{2}}}{4 \Delta x} a_{2|i-1,j-1}
-    + \frac{Q_{22|i,j-\frac{1}{2}}-Q_{22|i,j+\frac{1}{2}}}{4 \Delta x} a_{2|i-1,j}
-    - \frac{Q_{22|i,j+\frac{1}{2}}}{4 \Delta x} a_{2|i-1,j+1}
+    + 
+    \left(
+        \frac{P_{121|i-\frac{1}{2},j}-P_{121|i+\frac{1}{2},j}}{4 \Delta x \Delta y} 
+        % a_{1|i,j-1}
+        + \frac{P_{221|i,j-\frac{1}{2}}}{\Delta y^2} 
+    \right) a_{1|i,j-1}
     \\
     &
-    + \frac{P_{22|i,j-\frac{1}{2}}}{\Delta y} a_{2|i,j-1}
-    - \frac{P_{22|i,j+\frac{1}{2}}+P_{22|i,j-\frac{1}{2}}}{\Delta y} a_{2|i,j}
-    + \frac{P_{22|i,j+\frac{1}{2}}}{\Delta y} a_{2|i,j+1}
+    - 
+    \left(
+        \frac{Q_{121|i+\frac{1}{2},j}+Q_{121|i-\frac{1}{2},j}}{\Delta x^2} 
+        % a_{1|i,j}
+        + \frac{P_{221|i,j+\frac{1}{2}}+P_{221|i,j-\frac{1}{2}}}{\Delta y^2}
+    \right) a_{1|i,j}
     \\
     &
-    - \frac{Q_{22|i,j-\frac{1}{2}}}{4 \Delta x} a_{2|i+1,j-1}
-    + \frac{Q_{22|i,j+\frac{1}{2}}-Q_{22|i,j-\frac{1}{2}}}{4 \Delta x} a_{2|i+1,j}
-    + \frac{Q_{22|i,j+\frac{1}{2}}}{4 \Delta x} a_{2|i+1,j+1}
+    + 
+    \left(
+        \frac{P_{121|i+\frac{1}{2},j}-P_{121|i-\frac{1}{2},j}}{4 \Delta x \Delta y} 
+        % a_{1|i,j+1}
+        + \frac{P_{221|i,j+\frac{1}{2}}}{\Delta y^2} 
+    \right) a_{1|i,j+1}
+    \\
+    &
+    - \frac{P_{121|i+\frac{1}{2},j}+Q_{221|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i+1,j-1}
+    % - \frac{Q_{221|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i+1,j-1}
+    \\
+    &
+    + 
+    \left(
+        \frac{Q_{121|i+\frac{1}{2},j}}{\Delta x^2} 
+        % a_{1|i+1,j}
+        + \frac{Q_{221|i,j+\frac{1}{2}}-Q_{221|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} 
+    \right) a_{1|i+1,j}
+    \\
+    &
+    + \frac{P_{121|i+\frac{1}{2},j}+Q_{221|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i+1,j+1}
+    % + \frac{Q_{221|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{1|i+1,j+1}
+    \\
+    &
+    + \frac{P_{122|i-\frac{1}{2},j}+Q_{222|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i-1,j-1}
+    % + \frac{Q_{222|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i-1,j-1}
+    \\
+    &
+    + 
+    \left(
+        \frac{Q_{122|i-\frac{1}{2},j}}{\Delta x^2} 
+        % a_{2|i-1,j}
+        + \frac{Q_{222|i,j-\frac{1}{2}}-Q_{222|i,j+\frac{1}{2}}}{4 \Delta x \Delta y}
+    \right) a_{2|i-1,j}
+    \\
+    &
+    - \frac{P_{122|i-\frac{1}{2},j}+Q_{222|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i-1,j+1}
+    % - \frac{Q_{222|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i-1,j+1}
+    \\
+    &
+    + 
+    \left(
+        \frac{P_{122|i-\frac{1}{2},j}-P_{122|i+\frac{1}{2},j}}{4 \Delta x \Delta y} 
+        % a_{2|i,j-1}
+        + \frac{P_{222|i,j-\frac{1}{2}}}{\Delta y^2}
+    \right) a_{2|i,j-1}
+    \\
+    &
+    - 
+    \left(
+        \frac{Q_{122|i+\frac{1}{2},j}+Q_{122|i-\frac{1}{2},j}}{\Delta x^2} 
+        % a_{2|i,j}
+        + \frac{P_{222|i,j+\frac{1}{2}}+P_{222|i,j-\frac{1}{2}}}{\Delta y^2}
+    \right) a_{2|i,j}
+    \\
+    &
+    + 
+    \left(
+        \frac{P_{122|i+\frac{1}{2},j}-P_{122|i-\frac{1}{2},j}}{4 \Delta x \Delta y} 
+        % a_{2|i,j+1}
+        + \frac{P_{222|i,j+\frac{1}{2}}}{\Delta y^2}
+    \right) a_{2|i,j+1}
+    \\
+    &
+    - \frac{P_{122|i+\frac{1}{2},j}+Q_{222|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i+1,j-1}
+    % - \frac{Q_{222|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i+1,j-1}
+    \\
+    &
+    + 
+    \left(
+        \frac{Q_{122|i+\frac{1}{2},j}}{\Delta x^2} 
+        % a_{2|i+1,j}
+        + \frac{Q_{222|i,j+\frac{1}{2}}-Q_{222|i,j-\frac{1}{2}}}{4 \Delta x \Delta y} 
+    \right) a_{2|i+1,j}
+    \\
+    &
+    + \frac{P_{122|i+\frac{1}{2},j}+Q_{222|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i+1,j+1}
+    % + \frac{Q_{222|i,j+\frac{1}{2}}}{4 \Delta x \Delta y} a_{2|i+1,j+1}
     \\
     & = 0 
 \end{align*}
+
+\tg{HERE. TODO: calculate the coeffs for a given split}
+
+
 In the $x$ direction we want to apply Dirichlet boundary conditions and Neumann on the $y$.
 
 
