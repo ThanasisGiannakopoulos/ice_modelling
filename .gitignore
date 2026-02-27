@@ -11,3 +11,8 @@ notes/notes.fls
 notes/notes.fdb_latexmk
 attic/
 examples/sia/runs/
+notes/%OUTDIR%
+examples/ssa/runs/
+examples/fracture/elastic/1d/runs/
+examples/fracture/viscoelastic/1d/runs/
+runs/
