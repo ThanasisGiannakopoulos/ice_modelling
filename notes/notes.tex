@@ -1863,133 +1863,78 @@ and $g(d) = (1 - d)^2$ the degradation function informed by the phase field.
 
 We drop the $z$ component for convenience in what follows. We want to use finite volume methods in our discretization, on the Cartesian $x,y$ basis. To do that, we need the stress tensor that includes the tensile/compressive split wich utilized the principal directions, transformed back into $x,y$.
 
-\tg{HERE}
+\tg{Pause the split for a bit and revisit; check literature}
 
 The momentum equation (with vanishing rhs i.e. no water pressure, no gravity) is $\nabla \cdot \bb{\sigma} = 0$, which when integrated over a square cell $\Omega$ of volume $d\Omega = \Delta x \cdot \Delta y$, with faces labelled by east, west, north, and south, reads
 \begin{align*}
     \int_\Omega \nabla \cdot \bb{\sigma} d\Omega 
     & = \int_{\p \Omega} \bb{\sigma} \cdot \bb{n} dA
 \end{align*}
-where the lhs yields 3 equations ($\nabla$ can be represented by a vector and $\bb{\sigma}$ a matrix), so the rhs the same. We denote by $\bb{\sigma}_i$ the rows of (the spectrally decomposed; diagonal) $\bb{\sigma}$ to obtain
-%
-\tg{Need to transform back to x,y coords from the spectrally decomposed}
-%
+where the lhs yields 3 equations ($\nabla$ can be represented by a vector and $\bb{\sigma}$ a matrix), so the rhs the same. We denote by $\bb{\sigma}_i$ the rows of $\bb{\sigma}$ in the $x,y,$ basis to obtain
 \begin{align*}
     \int_{\p \Omega} \bb{\sigma}_1 \cdot \bb{n} dA
     & = \int_{\p \Omega_e} \sigma_{11} dA_e
     - \int_{\p \Omega_w} \sigma_{11} dA_w
+    + \int_{\p \Omega_n} \sigma_{12} dA_n
+    - \int_{\p \Omega_s} \sigma_{12} dA_s
     \\
     \int_{\p \Omega} \bb{\sigma}_2 \cdot \bb{n} dA
-    & = \int_{\p \Omega_n} \sigma_{22} dA_n
+    & = \int_{\p \Omega_e} \sigma_{12} dA_e
+    - \int_{\p \Omega_w} \sigma_{12} dA_w
+    + \int_{\p \Omega_n} \sigma_{22} dA_n
     - \int_{\p \Omega_s} \sigma_{22} dA_s
 \end{align*}
 where the outward pointing normal vector to $\p\Omega_e$ is $n_x = (1,0,0)$ to $\p\Omega_w$ is $-n_x$, to $\p\Omega_n$ is $n_y=(0,1,0)$, and to $\p\Omega_s$ is $-n_y$. Following the setup depicted in Fig. \ref{fig:grid} we get
 \begin{align*}
-    \int_{\p \Omega_e} \sigma_{11} dA_e 
+    \int_{\p \Omega_e} \sigma_{lk} dA_e 
     &\simeq 
-    \int_{-\Delta y/2}^{\Delta y/2} \sigma_{11}|_e dy = \sigma_{11| i+\frac{1}{2},j} \, \Delta y
+    \int_{-\Delta y/2}^{\Delta y/2} \sigma_{lk}|_e dy = \sigma_{lk| i+\frac{1}{2},j} \, \Delta y
     \,,
     \\
-    \int_{\p \Omega_w} \sigma_{11} dA_w 
+    \int_{\p \Omega_w} \sigma_{lk} dA_w 
     &\simeq 
-    \int_{-\Delta y/2}^{\Delta y/2} \sigma_{11}|_w dy = \sigma_{11| i-\frac{1}{2},j} \, \Delta y
+    \int_{-\Delta y/2}^{\Delta y/2} \sigma_{lk}|_w dy = \sigma_{lk| i-\frac{1}{2},j} \, \Delta y
     \\
-    \int_{\p \Omega_n} \sigma_{22} dA_n 
+    \int_{\p \Omega_n} \sigma_{lk} dA_n 
     &\simeq 
-    \int_{-\Delta x/2}^{\Delta x/2} \sigma_{22}|_n dy = \sigma_{22| i,j+\frac{1}{2}} \, \Delta x
+    \int_{-\Delta x/2}^{\Delta x/2} \sigma_{lk}|_n dy = \sigma_{lk| i,j+\frac{1}{2}} \, \Delta x
     \,,
     \\
-    \int_{\p \Omega_s} \sigma_{22} dA_s 
+    \int_{\p \Omega_s} \sigma_{lk} dA_s 
     &\simeq 
-    \int_{-\Delta x/2}^{\Delta x/2} \sigma_{22}|_s dy = \sigma_{22| i,j-\frac{1}{2}} \, \Delta x
+    \int_{-\Delta x/2}^{\Delta x/2} \sigma_{lk}|_s dy = \sigma_{lk| i,j-\frac{1}{2}} \, \Delta x
     \,,
 \end{align*}
-and the momentum equations read
-%
-\tg{I think; I have 2 eqs for the 2 unknowns $a_1, a_2$.}
-%
+where the indices $l,k$ label the elements of $\bb{\sigma}$. Then, the momentum equations read
 \begin{align*}
     \left(\sigma_{11| i+\frac{1}{2},j}-\sigma_{11| i-\frac{1}{2},j}\right) \, \Delta y
+    +
+    \left(\sigma_{12| i,j+\frac{1}{2}}-\sigma_{12| i,j-\frac{1}{2}} \right) \, \Delta x
     &
     = 0 
     \\
+    \left(\sigma_{12| i+\frac{1}{2},j}-\sigma_{12| i-\frac{1}{2},j}\right) \, \Delta y
+    +
     \left(\sigma_{22| i,j+\frac{1}{2}}-\sigma_{22| i,j-\frac{1}{2}} \right) \, \Delta x
     &
     = 0 \,.
 \end{align*}
 
-In \cite{stocek2023} the pressure $p$ is evolved as an independent variable (it is a function of the elastic displacement), and the incompressibility equation is enforced (as a constraint?) using a Lagrange multiplier captured by an auxiliary variable $q$. In that case, the variables are $u,w,p,q$, (in addition to the phase field), which are four, for four equations (if we do not view them in terms of components on an $x,y,$ basis; they use finite elements, so the latter is not optimal I think). Here however we use finite volume, which utilizes an $x,y$ basis, and we do take the viewpoint of components on this basis for $\bb{u},\bb{w}$, which are four independent components. Therefore, we are going to try and solve these four equations (momentum, viscosity, mass, incompressibility) for the four total components $u_1, u_2,w_1, w_2$. 
+% In \cite{stocek2023} the pressure $p$ is evolved as an independent variable (it is a function of the elastic displacement), and the incompressibility equation is enforced (as a constraint?) using a Lagrange multiplier captured by an auxiliary variable $q$. In that case, the variables are $u,w,p,q$, (in addition to the phase field), which are four, for four equations (if we do not view them in terms of components on an $x,y,$ basis; they use finite elements, so the latter is not optimal I think). Here however we use finite volume, which utilizes an $x,y$ basis, and we do take the viewpoint of components on this basis for $\bb{u},\bb{w}$, which are four independent components. Therefore, we are going to try and solve these four equations (momentum, viscosity, mass, incompressibility) for the four total components $u_1, u_2,w_1, w_2$. 
 
-To achieve this, we want to write this system of equations in the form $\bb{M} \bb{U} = \bb{b}$ with $\bb{U} = (u_1, u_2, w_1, w_2)^T$. The unknowns are functions of $x,y$ at the continuum, which can be approximated by matrices of size $N_x \times N_y$ at the discrete level. To be able to write the system in a form where we apply matrix inversion to $\bb{M}$, the unknowns are cast into vectors with column or row major (that is read the first column, then the second, etc, and write it as a vector of size $N_x \cdot N_y$). Then $\bb{M}$ is a matrix of size $N_{tot} \times N_{tot}$ with $N_{tot}:= N_x \cdot N_y$. To apply this logic, we want to write the equations as a linear system for $u_1,u_2,w_1,w_2$, which means that $\sigma_{11}, \sigma_{22}$ have to be linearized. When we apply the fixed point iteration, the non-linear coefficients are calculated using the solution of the previous iteration, as in the 1d case.
+% To achieve this, we want to write this system of equations in the form $\bb{M} \bb{U} = \bb{b}$ with $\bb{U} = (u_1, u_2, w_1, w_2)^T$. 
 
-We have
+The unknowns are functions of $x,y$ at the continuum, which can be approximated by matrices of size $N_x \times N_y$ at the discrete level. To be able to write the system in a form where we apply matrix inversion to $\bb{M}$, the unknowns are cast into vectors with column or row major (that is read the first column, then the second, etc, and write it as a vector of size $N_x \cdot N_y$). Then $\bb{M}$ is a matrix of size $N_{tot} \times N_{tot}$ with $N_{tot}:= N_x \cdot N_y$. To apply this logic, we want to write the equations as a linear system for $a_1,a_2$, which means that $\sigma_{11}, \sigma_{12}, \sigma_{22}$ have to be written in the form
 \begin{align*}
-    -p >0 \text{ and } q_i >0 &: \sigma_{ii} = - g\, p + 2g \, q_i
-    \,,
-    \\
-    -p >0 \text{ and } q_i \leq 0 &: \sigma_{ii} = - g\, p + 2 \, q_i
-    \\
-    -p \leq 0 \text{ and } q_i >0 &: \sigma_{ii} = - p + 2g \, q_i
-    \\
-    -p \leq 0 \text{ and } q_i \leq 0 &: \sigma_{ii} = - p + 2\, q_i
-    \,,
+    \sigma_{lk} = Q_{lk1}\p_x a_1 + P_{lk1} \p_y a_1
+     + Q_{lk2} \p_x a2 + P_{lk2} \p_y a_2
+     \,,
 \end{align*}
-with  $g=g(d)$
-and after linearization
-\begin{align*}
-    &
-    q_1 = r_{1x} \, a_{1x} + r_{1y} \, a_{1y} + r_{2x} \, a_{2x} + r_{2y} \, a_{2y}
-    \,,
-    \\
-    & 
-    r_{1x} = \frac{1}{6} - \frac{\bar{a}_{1x}-\bar{a}_{2y}}{2\bar{f}}
-    \,, \quad
-    r_{1y} = - \frac{\bar{a}_{1y}+\bar{a}_{2x}}{2\bar{f}}
-    \, \quad
-    r_{2x} = - \frac{\bar{a}_{1y}+\bar{a}_{2x}}{2\bar{f}}
-    \,, \quad
-    r_{2y} = \frac{1}{6} + \frac{\bar{a}_{1x}-\bar{a}_{2y}}{2\bar{f}}
-    \,,
-    \\
-    &
-    \bar{f} = \left[\left(\bar{a}_{1x}-\bar{a}_{2y}\right)^2 + 
-    \left(\bar{a}_{1y}+\bar{a}_{2x}\right)^2\right]^{1/2}
-    \,,
-    \\
-    &
-    q_2 = s_{1x} \, a_{1x} + s_{1y} \, a_{1y} + s_{2x} \, a_{2x} + s_{2y} \, a_{2y}
-    = r_{2y} \, a_{1x} - r_{1y} \, a_{1y} -r_{2x} \, a_{2x} + r_{1x} \, a_{2y}
-    \,,
-    \\
-    & 
-    s_{1x} = \frac{1}{6} + \frac{\bar{a}_{1x}-\bar{a}_{2y}}{2\bar{f}} = r_{2y}
-    \,, \quad
-    s_{1y} = \frac{\bar{a}_{1y}+\bar{a}_{2x}}{2\bar{f}} = -r_{1y}
-    \,
-    \\
-    &
-    s_{2x} = \frac{\bar{a}_{1y}+\bar{a}_{2x}}{2\bar{f}} = -r_{2x}
-    \,, \quad
-    s_{2y} = \frac{1}{6} - \frac{\bar{a}_{1x}-\bar{a}_{2y}}{2\bar{f}} = r_{1x}
-    \,,
-\end{align*}
-where here $\bar{\cdot}$ denotes a known coefficient, e.g one that is obtained from the previous fixed point iteration. We have to be careful when $\bar{f}=0$ (i.e. when we start with zero displacements, this is the case). Not sure if my following calculation is correct, but let's try: assume that $\bar{a}_{1y}+\bar{a}_{2x}$ and $\bar{a}_{1x}-\bar{a}_{2y}$ got to zero at the same rate (linear) and from the same semi-axis (positive; debatable). Then replace them with $\epsilon$ and take the limit to $\epsilon^+ \rightarrow 0$. Then 
-\begin{align*}
-    \frac{\bar{a}_{1y}+\bar{a}_{2x}}{\bar{f}} \sim \frac{\epsilon}{(\epsilon^2 + \epsilon^2)^{1/2}}
-    = 2^{-1/2}
-\end{align*}
-and similarly for $(\bar{a}_{1x}-\bar{a}_{2y})/\bar{f}$ which means that when $\bar{f}=0$ we will used
-\begin{align*}
-    r_{1x} = \frac{1}{6} - \frac{1}{2^{3/2}}
-    \,, \quad
-    r_{1y} = - \frac{1}{2^{3/2}}
-    \, \quad
-    r_{2x} = - \frac{1}{2^{3/2}}
-    \,, \quad
-    r_{2y} = \frac{1}{6} + \frac{1}{2^{3/2}}
-    \,.
-\end{align*}
-To evaluate the momentum equations we need to evaluate $\sigma_{11}$ and $\sigma_{22}$ on the faces of a cell labelled by $i,j$. This involves $p,q_1,q_2$ which have the following schematic operational form
+where the coefficients $Q_{lk1}, P_{lk1}, Q_{lk2}, P_{lk2}$ can be non-linear function of $a1,a2$. When we apply the fixed point iteration they are calculated using the solution of the previous iteration, as in the 1d case. They also carry the information form the energy split that informs the location that the degredation function is applied, by containing the masks $m_p, m_{q_i}$.
+
+\tg{HERE}
+
+To evaluate the momentum equations we need to evaluate $\sigma_{11}, \sigma_{12}$ and $\sigma_{22}$ on the faces of a cell labelled by $i,j$. Their components have the following schematic operational form (for the functions $a_1(x,y), a_2(x,y)$)
 \begin{align*}
     Q \p_x f + P \p_y f
     \,.
@@ -2020,26 +1965,8 @@ Evaluation of this on these faces (using centred FD operators) read
     + P_{i,j-\frac{1}{2}} \frac{f_{i,j}-f_{i,j-1}}{\Delta y}
     \,.
 \end{align*}
-We use masks to capture $g$, that is $m_p=1$ if $p \leq0$ and $m_p = g$ otherwise, etc. Then we have
-\begin{align*}
-    \sigma_{11} 
-    & = Q_{11} \p_x a_1 + P_{11} \p_y a_1 + Q_{12} \p_x a_2 + P_{12} \p_y a_2
-    \,,
-\end{align*}
-with
-\begin{align*}
-    Q_{11} 
-    & = m_p \left(\lambda + \frac{2\mu}{3} \right) + m_{q_1} r_{1x}
-    \,, \quad
-    P_{11} = 2 m_{q_1} r_{1y}
-    \,,
-    \\
-    Q_{12}
-    & = 2 m_{q_1} r_{2x} \,, \quad
-    P_{12} = m_p \left(\lambda + \frac{2\mu}{3} \right) + m_{q_1} r_{2y}
-    \,,
-\end{align*}
-and the first momentum equation 
+
+The first momentum equation 
 \begin{align*}
     \left(\sigma_{11| i+\frac{1}{2},j}-\sigma_{11| i-\frac{1}{2},j}\right) \, \Delta y
     &
