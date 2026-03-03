@@ -2277,11 +2277,24 @@ yields (after dividing by $\Delta x \Delta y$)
     & = 0 
 \end{align*}
 
-\tg{HERE. TODO: calculate the coeffs for a given split}
+\tg{TODO: calculate the coeffs for a given split}
 
+In the $x$ direction we want to apply Dirichlet boundary conditions and traction-free in the $y$ i.e. $\bb{\sigma} \cdot \bb{n} = 0 $. The latter reads in 2d generically
+\begin{align*}
+    \begin{pmatrix}
+        \sigma_{11} n_1 + \sigma_{12} n_2
+        \\
+        \sigma_{12} n_1 + \sigma_{22} n_2
+    \end{pmatrix}
+    = 
+    \begin{pmatrix}
+        0 \\ 0
+    \end{pmatrix}
+    \,,
+\end{align*}
+with $\bb{n} = (n_1\,, n_2)^T$. To apply the condition on the $y$ direction it means in our setup to apply it at the top and bottom edges of our square computational domain. The normal vector there is $\pm (0,1)^T$. for top/bottom respectively (in the $x,y$ basis). Therefore, we need to impose $\sigma_{12} = 0$ and $\sigma_{22}=0$ there. The $\p_x$ operator is discretized with centred FD operators (ommiting the corners that touch the $x$ boundary to allow for Dirichlet BC there) and the $\p_y$ operator is discretized with forward/backward 1st order FD operator for $j=1$ and $j=N_y$, respectively.
 
-In the $x$ direction we want to apply Dirichlet boundary conditions and Neumann on the $y$.
-
+\tg{HERE}
 
 \subsection{2d viscoelastic plate}
 
