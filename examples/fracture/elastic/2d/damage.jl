@@ -70,8 +70,8 @@ end
 function history(H_old, a1, a2, p::Params)
     λ, μ = p.λ, p.μ
     H_new = zeros(p.Nx,p.Ny)
-    for j in 1:Ny
-        for i in 1:Nx
+    for j in 1:p.Ny
+        for i in 1:p.Nx
             H_new[i,j] = (λ + 2*μ/2)*(Dx(a1,i,j,p) + Dy(a2,i,j,p))^2
         end
     end

@@ -5,8 +5,7 @@ function build_displacement_system(
     Q221,P221,Q222,P222,
     p::Params,
     f1_left, f1_right,
-    f2_left, f2_right,
-    x,y)
+    f2_left, f2_right)
 
     Nx,Ny = p.Nx,p.Ny
     Δx,Δy = p.Δx,p.Δy
@@ -434,4 +433,13 @@ function build_displacement_system(
     end
 
     return M,b
+end
+
+function displacement_BC_left_right(t::Float64, p::Params)
+    f1_left  = 0.0*ones(p.Ny)
+    f2_left  = 0.0*ones(p.Ny)
+    
+    f1_right = t*2.0*1e-0*ones(p.Ny)
+    f2_right = 0*1e-1*ones(p.Ny)
+    return f1_left, f2_left, f1_right, f2_right
 end
