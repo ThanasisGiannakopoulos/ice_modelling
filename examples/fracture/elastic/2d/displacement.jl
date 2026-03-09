@@ -44,7 +44,7 @@ function build_displacement_system(
             M[k1,Ntot+lin(1,j-1,Nx)] = μ*(-0.5/Δy)
             M[k1,Ntot+lin(1,j+1,Nx)] = μ*(0.5/Δy)
             # prescribed f1_left
-            b[k1] = f1_left[j] 
+            b[k1] = -f1_left[j] 
             # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
             # μ ∂_y a1; centred FD
             M[k2,lin(1,j-1,Nx)] = μ*(-0.5/Δy)
@@ -53,101 +53,62 @@ function build_displacement_system(
             M[k2,Ntot+lin(1,j,Nx)] = μ*(-1/Δx)
             M[k2,Ntot+lin(2,j,Nx)] = μ*(1/Δx)
             # prescribed f2_left
-            b[k2] = f2_left[j]
+            b[k2] = -f2_left[j]
         end
         
-        """
-        does not work well; there are 3 dofs related to rigid body motion to be fixed that I cannot do well yet. Below is a failed attempt
-        """
         # -------------------------------------------------------------------------
-        # pin the corner i=1,j=1 to remove translations (traction prescribes derivatives only; there is residual gauge freedom)
+        # on the 2 corners use forward and backward FD for ∂_y
         # -------------------------------------------------------------------------
+        # i=1,j=1
         k = lin(1,1,Nx)
         k1 = k # for a1 positions in vector [a1, a2]
         k2 = k + Ntot # for a2...
-        M[k1,k1]=1; b[k1] = 0.0
-        M[k2,k2]=1; b[k2] = 0.0
-
-        # pinalso top left corner; fail
-        k = lin(1,Ny,Nx)
-        k1 = k # for a1 positions in vector [a1, a2]
-        k2 = k + Ntot # for a2...
-        M[k1,k1]=1; b[k1] = 0.0
-        M[k2,k2]=1; b[k2] = 0.0
-        
-        # # -------------------------------------------------------------------------
-        # # at i=1,j=2 impose zero rotation i.e x*u2-y*u1 = 0, to remove 1 dof
-        # # -------------------------------------------------------------------------
-        # k = lin(1,2,Nx)
-        # k1 = k # for a1 positions in vector [a1, a2]
-        # k2 = k + Ntot # for a2...
-        # M[k1,k1] += 1.0#-y[2] # coef of a1 
-        # M[k2,k2] += 1.0#x[1] # coef of a2
-        # b[k1] = 0.0
-        # b[k2] = 0.0
-        # # # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
-        # # # μ ∂_y a1; centred FD
-        # # M[k2,lin(1,1,Nx)] = μ*(-0.5/Δy)
-        # # M[k2,lin(1,3,Nx)] = μ*(0.5/Δy)
-        # # # + μ ∂_x a2; forward FD
-        # # M[k2,Ntot+lin(1,2,Nx)] = μ*(-1/Δx)
-        # # M[k2,Ntot+lin(2,2,Nx)] = μ*(1/Δx)
-        # # # prescribed f2_left
-        # # b[k2] = f2_left[2]
-        
-        # # -------------------------------------------------------------------------
-        # # on the 2 corners use forward and backward FD for ∂_y
-        # # -------------------------------------------------------------------------
-        # # i=1,j=1
-        # k = lin(1,1,Nx)
-        # k1 = k # for a1 positions in vector [a1, a2]
-        # k2 = k + Ntot # for a2...
-        # # for sigma_11 = (λ+2μ)∂_x a1 + λ ∂_y a2 = f1_left
-        # # tensile/compressive
-        # # (λ+2μ)∂_x a1 # forward FD
-        # M[k1,k1]= (λ+2μ)*(-1/Δx)
-        # M[k1,lin(2,1,Nx)]= (λ+2μ)*(1/Δx) 
-        # # + λ ∂_y a2 # forward FD
-        # M[k1,Ntot+lin(1,1,Nx)] = μ*(-1/Δy)
-        # M[k1,Ntot+lin(1,2,Nx)] = μ*(1/Δy)
-        # # prescribed f1_left
-        # b[k1] = f1_left[1] 
-        # # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
-        # # μ ∂_y a1; forward FD
-        # M[k2,lin(1,1,Nx)] = μ*(-1/Δy)
-        # M[k2,lin(1,2,Nx)] = μ*(1/Δy)
-        # # + μ ∂_x a2; forward FD
-        # M[k2,Ntot+lin(1,1,Nx)] = μ*(-1/Δx)
-        # M[k2,Ntot+lin(2,1,Nx)] = μ*(1/Δx)
-        # # prescribed f2_left
-        # b[k2] = f2_left[1]
+        # for sigma_11 = (λ+2μ)∂_x a1 + λ ∂_y a2 = f1_left
+        # tensile/compressive
+        # (λ+2μ)∂_x a1 # forward FD
+        M[k1,k1]= (λ+2μ)*(-1/Δx)
+        M[k1,lin(2,1,Nx)]= (λ+2μ)*(1/Δx) 
+        # + λ ∂_y a2 # forward FD
+        M[k1,Ntot+lin(1,1,Nx)] = μ*(-1/Δy)
+        M[k1,Ntot+lin(1,2,Nx)] = μ*(1/Δy)
+        # prescribed f1_left
+        b[k1] = -f1_left[1] 
+        # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
+        # μ ∂_y a1; forward FD
+        M[k2,lin(1,1,Nx)] = μ*(-1/Δy)
+        M[k2,lin(1,2,Nx)] = μ*(1/Δy)
+        # + μ ∂_x a2; forward FD
+        M[k2,Ntot+lin(1,1,Nx)] = μ*(-1/Δx)
+        M[k2,Ntot+lin(2,1,Nx)] = μ*(1/Δx)
+        # prescribed f2_left
+        b[k2] = -f2_left[1]
         
         # -------------------------------------------------------------------------
         # i=1,j=Ny
         # -------------------------------------------------------------------------
         
-        # k = lin(1,Ny,Nx)
-        # k1 = k # for a1 positions in vector [a1, a2]
-        # k2 = k + Ntot # for a2...
-        # # for sigma_11 = (λ+2μ)∂_x a1 + λ ∂_y a2 = f1_left
-        # # tensile/compressive
-        # # (λ+2μ)∂_x a1 # forward FD
-        # M[k1,k1]= (λ+2μ)*(-1/Δx)
-        # M[k1,lin(2,Ny,Nx)]= (λ+2μ)*(1/Δx) 
-        # # + λ ∂_y a2 # backward FD
-        # M[k1,Ntot+lin(1,Ny-1,Nx)] = μ*(-1/Δy)
-        # M[k1,Ntot+lin(1,Ny,Nx)] = μ*(1/Δy)
-        # # prescribed f1_left
-        # b[k1] = f1_left[Ny] 
-        # # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
-        # # μ ∂_y a1; backward FD
-        # M[k2,lin(1,Ny-1,Nx)] = μ*(-1/Δy)
-        # M[k2,lin(1,Ny,Nx)] = μ*(1/Δy)
-        # # + μ ∂_x a2; forward FD
-        # M[k2,Ntot+lin(1,Ny,Nx)] = μ*(-1/Δx)
-        # M[k2,Ntot+lin(2,Ny,Nx)] = μ*(1/Δx)
-        # # prescribed f2_left
-        # b[k2] = f2_left[Ny]
+        k = lin(1,Ny,Nx)
+        k1 = k # for a1 positions in vector [a1, a2]
+        k2 = k + Ntot # for a2...
+        # for sigma_11 = (λ+2μ)∂_x a1 + λ ∂_y a2 = f1_left
+        # tensile/compressive
+        # (λ+2μ)∂_x a1 # forward FD
+        M[k1,k1]= (λ+2μ)*(-1/Δx)
+        M[k1,lin(2,Ny,Nx)]= (λ+2μ)*(1/Δx) 
+        # + λ ∂_y a2 # backward FD
+        M[k1,Ntot+lin(1,Ny-1,Nx)] = μ*(-1/Δy)
+        M[k1,Ntot+lin(1,Ny,Nx)] = μ*(1/Δy)
+        # prescribed f1_left
+        b[k1] = -f1_left[Ny] 
+        # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
+        # μ ∂_y a1; backward FD
+        M[k2,lin(1,Ny-1,Nx)] = μ*(-1/Δy)
+        M[k2,lin(1,Ny,Nx)] = μ*(1/Δy)
+        # + μ ∂_x a2; forward FD
+        M[k2,Ntot+lin(1,Ny,Nx)] = μ*(-1/Δx)
+        M[k2,Ntot+lin(2,Ny,Nx)] = μ*(1/Δx)
+        # prescribed f2_left
+        b[k2] = -f2_left[Ny]
     
     else
         println("no such left_x_BC")
@@ -436,10 +397,10 @@ function build_displacement_system(
 end
 
 function displacement_BC_left_right(t::Float64, p::Params)
-    f1_left  = 0.0*ones(p.Ny)
+    f1_left  = -t*1.0*1e-0*ones(p.Ny) # 0.0*ones(p.Ny)
     f2_left  = 0.0*ones(p.Ny)
     
-    f1_right = t*2.0*1e-0*ones(p.Ny)
+    f1_right = t*1.0*1e-0*ones(p.Ny)
     f2_right = 0*1e-1*ones(p.Ny)
     return f1_left, f2_left, f1_right, f2_right
 end

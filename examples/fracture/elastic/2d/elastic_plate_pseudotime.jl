@@ -70,7 +70,23 @@ function ti_solver(
             )
 
         # solve for a
-        a_sol = M \ b
+        if p.left_x_BC=="traction" && p.right_x_BC=="traction"
+            C = build_constraints(p)
+            gg = zeros(3)
+            # induced aggregate x translation form x_BC
+            gg[1] = 0.0#0.5*(sum(f1_left) + sum(f1_right))/p.Ny
+            # induced aggregate y translation form x_BC
+            gg[2] = 0.0#0.5*(sum(f2_left) + sum(f2_right))/p.Ny
+            # induced aggregate rotation from x_BC: x*a2 - y*a1 is rotation
+            gg[3] = 0.0#0.5*(sum(x[1]*f2_left .- y.*f1_left) + sum(x[end]*f2_right .- y.*f1_right))/p.Ny
+            K = [M  C;
+                C' zeros(3,3)]
+            rhs = [b;
+                gg]
+            a_sol = K \ rhs
+        else
+            a_sol = M \ b
+        end
         Ntot = p.Nx*p.Ny
         # make a1,a2 sols in matrices (x,y, grid functions)
         a1 = reshape(a_sol[1:Ntot], p.Nx, p.Ny)
@@ -150,15 +166,16 @@ end
 
 # Run example
 p = Params(    
-    left_x_BC = "Dirichlet", # "traction" 
+    left_x_BC = "traction", # "traction" 
     right_x_BC = "traction", # or "traction"
     y_BC="traction_free",
     λ = 1.0,
     μ = 1.0,
-    Nx = 40,
-    Ny = 40,
-    max_iter = 1,
-    T = 1000 + 1
+    Nx = 30,
+    Ny = 30,
+    max_iter = 10,
+    T = 40 + 1,
+    savefile="runs/sol_left_traction_right_traction.jls"
 )
 
 x = range(0,p.Lx,p.Nx)

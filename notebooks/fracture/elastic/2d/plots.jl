@@ -21,7 +21,7 @@ begin
 	using Serialization
 
 	x, y, a1_all, a2_all, d_all, H_all =
-     	 	  	deserialize("/home/tgia02/repos/ice_modelling/examples/fracture/elastic/2d/runs/sol.jls")
+     	 	  	deserialize("/home/tgia02/repos/ice_modelling/examples/fracture/elastic/2d/runs/sol_left_traction_right_traction.jls")
 
 	niter = size(d_all, 3)
 
@@ -62,7 +62,7 @@ begin
 	    legend = false,
 	    title = "Deformed Elastic Square"
 	)
-	
+
 	# node heatmap
 	scatter!(
 	    plt,
@@ -74,6 +74,7 @@ begin
 	    color = :coolwarm,
 	    markerstrokewidth = 0,   # removes black circle border
 	    colorbar = true,
+		clim=(0,1)
 	)
 	
 	# grid lines
@@ -84,7 +85,17 @@ begin
 	for j in 1:Nx
 	    plot!(plt, Xd[:,j], Yd[:,j], color=:black, lw=1)
 	end
+
+		# --- add red boundary lines for original shape---
+
+	# bottom and top
+	plot!(X[1, :],    Y[1, :],    color=:red, lw=2)
+	plot!(X[end, :],  Y[end, :],  color=:red, lw=2)
 	
+	# left and right
+	plot!(X[:, 1],    Y[:, 1],    color=:red, lw=2)
+	plot!(X[:, end],  Y[:, end],  color=:red, lw=2)
+
 	plt
 	#display(plt)
 end
@@ -97,13 +108,100 @@ end
 
 # ╔═╡ 284d1b38-a496-4b06-85e1-a906372324ca
 begin
+
+	# tune by hand
+	lambda = 1.0
+	mu = 1.0
+	
+	function Dx(x,f)
+	    Nx = length(x)
+	    Δx = x[2]-x[1]
+		fx = 0.0*copy(f)
+	    fx[1,:] .= (f[2,:] .- f[1,:]) / Δx
+		fx[Nx,:] .= (f[Nx,:] .- f[Nx-1,:]) / Δx
+	    for i in 2:Nx-1
+	        fx .= (f[i+1,:] .- f[i-1,:]) / (2Δx)
+	    end
+		return fx
+	end
+	
+	function Dy(y,f)
+	    Ny = length(y)
+	    Δy = y[2]-y[1]
+		fy = 0.0*copy(f)
+	    fy[:,1] .= (f[:,2] .- f[:,1]) / Δy
+	    fy[:,Ny] .=  (f[:,Ny] .- f[:,Ny-1]) / Δy
+	    for j in 2:Ny-1
+	        fy[:,j] .= (f[:,j+1] .- f[:,j-1]) / (2Δy)
+	    end
+		return fy
+	end
+		
 	d = d_all[:,:,iter2]
+	a1 = d_all[:,:,iter2]
+	a2 = d_all[:,:,iter2]
+	sigma_11 = (lambda + 2*mu)*Dx(x,a1) + lambda*Dy(y,a2)
+	sigma_12 = mu*Dx(x,a2) + mu*Dy(y,a1)
+	sigma_22 = lambda*Dx(x,a1) + (lambda+2*mu)*Dy(y,a2)
+	epsilon_11 = Dx(x,a1)
+	epsilon_12 = 0.5*Dx(x,a2) + 0.5*Dy(y,a1)
+	epsilon_22 = Dy(y,a2)
+	h = H_all[:,:,iter2]
+	
 	print(maximum(d))
 
-	heatmap(x,y,d',
-		xlabel="x",
-		ylabel="y",
-		color=:coolwarm)
+	p1 = heatmap(x, y, d',
+	    title="d",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+
+	p2 = heatmap(x, y, sigma_11',
+	    title="σ₁₁",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+	
+	p3 = heatmap(x, y, sigma_12',
+	    title="σ₁₂",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+	
+	p4 = heatmap(x, y, sigma_22',
+	    title="σ₂₂",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+
+	p5 = heatmap(x, y, epsilon_11',
+	    title="ϵ11",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+
+	p6 = heatmap(x, y, epsilon_12',
+	    title="ϵ12",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+
+	p7 = heatmap(x, y, epsilon_22',
+	    title="ϵ22",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+
+	p8 = heatmap(x, y, h',
+	    title="history",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+	
+	plot(p1, p2, p3, p4, 
+		 p5, p6, p7, p8,
+		 layout=(4,2),
+		size=(1200,1600))
 	
 end
 
