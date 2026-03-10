@@ -21,7 +21,7 @@ begin
 	using Serialization
 
 	x, y, a1_all, a2_all, d_all, H_all =
-     	 	  	deserialize("/home/tgia02/repos/ice_modelling/examples/fracture/elastic/2d/runs/sol_left_traction_right_traction.jls")
+     	 	  	deserialize("/home/tgia02/repos/ice_modelling/examples/fracture/elastic/2d/runs/sol_Dirichlet_traction_gammastar_m1_lambda_1_mu_1_C3_50.jls")
 
 	niter = size(d_all, 3)
 
@@ -202,6 +202,43 @@ begin
 		 p5, p6, p7, p8,
 		 layout=(4,2),
 		size=(1200,1600))
+	
+end
+
+# ╔═╡ b564e6d3-82ee-4a77-815a-c992caec08c8
+begin	
+	@bind iter3 Slider(1:niter, default=1)
+		
+end
+
+# ╔═╡ 22e7a388-229a-428d-aa74-22ef1a4c9a1b
+begin
+		
+	dd = d_all[:,:,iter3]
+	aa1 = a1_all[:,:,iter3]
+	aa2 = a2_all[:,:,iter3]
+	
+	pp1 = heatmap(x, y, dd',
+	    title="d",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+
+	pp2 = heatmap(x, y, aa1',
+	    title="a1",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+	
+	pp3 = heatmap(x, y, aa2',
+	    title="a2",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+	
+	plot(pp1, pp2, pp3,
+		 layout=(1,3),
+		size=(2000,600))
 	
 end
 
@@ -1363,5 +1400,7 @@ version = "1.13.0+0"
 # ╠═a16d47ed-fef0-4dc1-869b-010d89608ba6
 # ╠═53a448d4-8156-4744-b9ad-792baac95e07
 # ╠═284d1b38-a496-4b06-85e1-a906372324ca
+# ╠═b564e6d3-82ee-4a77-815a-c992caec08c8
+# ╠═22e7a388-229a-428d-aa74-22ef1a4c9a1b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -397,10 +397,10 @@ function build_displacement_system(
 end
 
 function displacement_BC_left_right(t::Float64, p::Params)
-    f1_left  = -t*1.0*1e-0*ones(p.Ny) # 0.0*ones(p.Ny)
+    f1_left  = 0.0*ones(p.Ny)#-t*1.0*1e0*ones(p.Ny) # 0.0*ones(p.Ny)
     f2_left  = 0.0*ones(p.Ny)
     
-    f1_right = t*1.0*1e-0*ones(p.Ny)
-    f2_right = 0*1e-1*ones(p.Ny)
+    f1_right =  t*1.0*1e0*ones(p.Ny)
+    f2_right =  0*1e-1*ones(p.Ny)
     return f1_left, f2_left, f1_right, f2_right
 end

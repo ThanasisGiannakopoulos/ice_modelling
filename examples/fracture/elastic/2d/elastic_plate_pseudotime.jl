@@ -17,10 +17,15 @@ Base.@kwdef struct Params
     T::Int = 10 + 1         # number of steps for pseudotime
     dt::Float64 = 1/(T-1)   # step in pseudotime
     tol::Float64 = 1e-6     # convergence tolerance
-    max_iter::Int = 20      # max staggered iterations
+    max_iter::Int = 10      # max staggered iterations
     savefile::String = "runs/sol.jls" # file to save iterations
     l::Float64 = 0.1 # regularization length for phase field
     C3::Float64 = 1.0 # constant for phase field eq.
+    """ 
+    parameter for star-convex energy split
+    with γstar>=-1, γstar=-1 is standard model and γstar=0 -s volumetric-deviatoric split
+    """
+    γstar::Float64 = 0.0  
 end
 
 # FD operators, index operator (matrix to list), degradation function
@@ -74,11 +79,11 @@ function ti_solver(
             C = build_constraints(p)
             gg = zeros(3)
             # induced aggregate x translation form x_BC
-            gg[1] = 0.0#0.5*(sum(f1_left) + sum(f1_right))/p.Ny
+            gg[1] = 0.5*(sum(f1_left) + sum(f1_right))/p.Ny
             # induced aggregate y translation form x_BC
-            gg[2] = 0.0#0.5*(sum(f2_left) + sum(f2_right))/p.Ny
+            gg[2] = 0.5*(sum(f2_left) + sum(f2_right))/p.Ny
             # induced aggregate rotation from x_BC: x*a2 - y*a1 is rotation
-            gg[3] = 0.0#0.5*(sum(x[1]*f2_left .- y.*f1_left) + sum(x[end]*f2_right .- y.*f1_right))/p.Ny
+            gg[3] = 0.5*(sum(x[1]*f2_left .- y.*f1_left) + sum(x[end]*f2_right .- y.*f1_right))/p.Ny
             K = [M  C;
                 C' zeros(3,3)]
             rhs = [b;
@@ -103,6 +108,7 @@ function ti_solver(
 
         # convergence check
         res = maximum(abs.(a1 .- a1_old)) + maximum(abs.(a2 .- a2_old)) + + maximum(abs.(d .- d_old))
+        println("res = $res")
         if res < p.tol
             println("   res = $res | converged at iteration $iter")
             break
@@ -143,7 +149,26 @@ function pseudotime_solver(
     d = d0
     H_old = H0
 
+    killfile = "runs/kill"
+
     for ti in 2:T-1
+        
+        # -------------------------
+        # KILL SWITCH CHECK
+        # -------------------------
+        if isfile(killfile)
+            println("Kill file detected. Saving solution and stopping simulation.")
+
+            serialize(p.savefile,
+                (x, y,
+                 a1_all[:,:,1:ti-1],
+                 a2_all[:,:,1:ti-1],
+                 d_all[:,:,1:ti-1],
+                 H_all[:,:,1:ti-1]))
+
+            return a1_all[:,:,1:ti-1], a2_all[:,:,1:ti-1], d_all[:,:,1:ti-1], H_all[:,:,1:ti-1]
+        end
+        
         # get time
         tt = t[ti]
         println("ti = $ti | t = $tt:")
@@ -166,16 +191,19 @@ end
 
 # Run example
 p = Params(    
-    left_x_BC = "traction", # "traction" 
+    left_x_BC = "Dirichlet", # "traction" 
     right_x_BC = "traction", # or "traction"
     y_BC="traction_free",
     λ = 1.0,
     μ = 1.0,
-    Nx = 30,
-    Ny = 30,
-    max_iter = 10,
-    T = 40 + 1,
-    savefile="runs/sol_left_traction_right_traction.jls"
+    Nx = 40,
+    Ny = 40,
+    max_iter = 200,
+    T = 100 + 1,
+    γstar = -1.0,
+    k = 1e-6,
+    C3 = 50,
+    savefile="runs/sol_Dirichlet_traction_gammastar_m1_lambda_1_mu_1_C3_50.jls"
 )
 
 x = range(0,p.Lx,p.Nx)
@@ -189,7 +217,7 @@ a2_0 = zeros(p.Nx, p.Ny)
 # phase field Gaussian*step_function
 d0 = zeros(p.Nx, p.Ny)
 f0 = 0.5*(1.0 .+ tanh.(50*(y .- 0.5)))
-g0 = 1.0*exp.(-(x .- 0.5).^2/(2*0.005))
+g0 = 0.99*exp.(-(x .- 0.5).^2/(2*0.005))
 for j in 1:p.Ny
     for i in 1:p.Nx
         d0[i,j] = g0[i]*f0[j]
@@ -198,6 +226,13 @@ end
 
 # history compatible with damage
 H0 = history_from_d(d0, p)
+
+killfile = "runs/kill"
+
+# Remove old kill file if it exists
+if isfile(killfile)
+    rm(killfile)
+end
 
 a1_all, a2_all, d_all, H_all = pseudotime_solver(a1_0, a2_0, d0, H0, p)
 
