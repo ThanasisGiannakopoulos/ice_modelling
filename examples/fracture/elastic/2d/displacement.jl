@@ -41,8 +41,8 @@ function build_displacement_system(
             M[k1,k1]= (λ+2μ)*(-1/Δx)
             M[k1,lin(2,j,Nx)]= (λ+2μ)*(1/Δx) 
             # + λ ∂_y a2 # centred FD
-            M[k1,Ntot+lin(1,j-1,Nx)] = μ*(-0.5/Δy)
-            M[k1,Ntot+lin(1,j+1,Nx)] = μ*(0.5/Δy)
+            M[k1,Ntot+lin(1,j-1,Nx)] = λ*(-0.5/Δy) #μ*(-0.5/Δy)
+            M[k1,Ntot+lin(1,j+1,Nx)] = λ*(0.5/Δy) # μ*(0.5/Δy)
             # prescribed f1_left
             b[k1] = -f1_left[j] 
             # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
@@ -69,8 +69,8 @@ function build_displacement_system(
         M[k1,k1]= (λ+2μ)*(-1/Δx)
         M[k1,lin(2,1,Nx)]= (λ+2μ)*(1/Δx) 
         # + λ ∂_y a2 # forward FD
-        M[k1,Ntot+lin(1,1,Nx)] = μ*(-1/Δy)
-        M[k1,Ntot+lin(1,2,Nx)] = μ*(1/Δy)
+        M[k1,Ntot+lin(1,1,Nx)] = λ*(-1/Δy) #μ*(-1/Δy)
+        M[k1,Ntot+lin(1,2,Nx)] = λ*(1/Δy) #μ*(1/Δy)
         # prescribed f1_left
         b[k1] = -f1_left[1] 
         # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
@@ -96,8 +96,8 @@ function build_displacement_system(
         M[k1,k1]= (λ+2μ)*(-1/Δx)
         M[k1,lin(2,Ny,Nx)]= (λ+2μ)*(1/Δx) 
         # + λ ∂_y a2 # backward FD
-        M[k1,Ntot+lin(1,Ny-1,Nx)] = μ*(-1/Δy)
-        M[k1,Ntot+lin(1,Ny,Nx)] = μ*(1/Δy)
+        M[k1,Ntot+lin(1,Ny-1,Nx)] = λ*(-1/Δy) #μ*(-1/Δy)
+        M[k1,Ntot+lin(1,Ny,Nx)] = λ*(1/Δy) #μ*(1/Δy)
         # prescribed f1_left
         b[k1] = -f1_left[Ny] 
         # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
@@ -135,8 +135,8 @@ function build_displacement_system(
             M[k1,k1]= (λ+2μ)*(1/Δx);
             M[k1,lin(Nx-1,j,Nx)]= (λ+2μ)*(-1/Δx); 
             # + λ ∂_y a2 # centred FD
-            M[k1,Ntot+lin(Nx,j-1,Nx)] = μ*(-0.5/Δy)
-            M[k1,Ntot+lin(Nx,j+1,Nx)] = μ*(0.5/Δy)
+            M[k1,Ntot+lin(Nx,j-1,Nx)] = λ*(-0.5/Δy) # μ*(-0.5/Δy)
+            M[k1,Ntot+lin(Nx,j+1,Nx)] = λ*(0.5/Δy) # μ*(0.5/Δy)
             # prescribed f1_right
             b[k1] = f1_right[j] 
             # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
@@ -160,8 +160,8 @@ function build_displacement_system(
         M[k1,k1]= (λ+2μ)*(1/Δx);
         M[k1,lin(Nx-1,1,Nx)]= (λ+2μ)*(-1/Δx); 
         # + λ ∂_y a2 # forward FD
-        M[k1,Ntot+lin(Nx,1,Nx)] = μ*(-1/Δy)
-        M[k1,Ntot+lin(Nx,2,Nx)] = μ*(1/Δy)
+        M[k1,Ntot+lin(Nx,1,Nx)] = λ*(-1/Δy) #μ*(-1/Δy)
+        M[k1,Ntot+lin(Nx,2,Nx)] = λ*(1/Δy) #μ*(1/Δy)
         # prescribed f1_right
         b[k1] = f1_right[1] 
         # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
@@ -183,8 +183,8 @@ function build_displacement_system(
         M[k1,k1]= (λ+2μ)*(1/Δx);
         M[k1,lin(Nx-1,Ny,Nx)]= (λ+2μ)*(-1/Δx); 
         # + λ ∂_y a2 # backward FD
-        M[k1,Ntot+lin(Nx,Ny-1,Nx)] = μ*(-1/Δy)
-        M[k1,Ntot+lin(Nx,Ny,Nx)] = μ*(1/Δy)
+        M[k1,Ntot+lin(Nx,Ny-1,Nx)] = λ*(-1/Δy) # μ*(-1/Δy)
+        M[k1,Ntot+lin(Nx,Ny,Nx)] = λ*(1/Δy) # μ*(1/Δy)
         # prescribed f1_right
         b[k1] = f1_right[Ny] 
         # for sigma_12 = μ ∂_y a1 + μ ∂_x a2 = f2_left
@@ -397,10 +397,10 @@ function build_displacement_system(
 end
 
 function displacement_BC_left_right(t::Float64, p::Params)
-    f1_left  = 0.0*ones(p.Ny)#-t*1.0*1e0*ones(p.Ny) # 0.0*ones(p.Ny)
+    f1_left  = -t*1e-2*ones(p.Ny) # 0.0*ones(p.Ny)#-t*1.0*1e0*ones(p.Ny) # 0.0*ones(p.Ny)
     f2_left  = 0.0*ones(p.Ny)
     
-    f1_right =  t*1.0*1e0*ones(p.Ny)
+    f1_right =  0.0*t*0.5*1e-2*ones(p.Ny)
     f2_right =  0*1e-1*ones(p.Ny)
     return f1_left, f2_left, f1_right, f2_right
 end

@@ -25,7 +25,8 @@ Base.@kwdef struct Params
     parameter for star-convex energy split
     with γstar>=-1, γstar=-1 is standard model and γstar=0 -s volumetric-deviatoric split
     """
-    γstar::Float64 = 0.0  
+    γstar::Float64 = 0.0
+    simple_d::Bool = false # solve the phase field eq w/ ∂^2 (false) or drop ∂^2 (true) 
 end
 
 # FD operators, index operator (matrix to list), degradation function
@@ -102,9 +103,13 @@ function ti_solver(
         println("   Iteration $iter: max(d_old) = ", maximum(d_old))
 
         # phase-field
-        Md, bd = build_phase_field_sys(H, p)
-        d_sol = Md \ bd
-        d = reshape(d_sol[1:Ntot], p.Nx, p.Ny)
+        if p.simple_d==false
+            Md, bd = build_phase_field_sys(H, p)
+            d_sol = Md \ bd
+            d = reshape(d_sol[1:Ntot], p.Nx, p.Ny)
+        else
+            d = 2.0*p.C3*p.l*H ./ (1.0 .+ 2.0*p.C3*p.l*H)
+        end
 
         # convergence check
         res = maximum(abs.(a1 .- a1_old)) + maximum(abs.(a2 .- a2_old)) + + maximum(abs.(d .- d_old))
@@ -130,28 +135,60 @@ function pseudotime_solver(
     T = p.T # number of pseudotemporal steps
 
     # pseudotime
-    t = range(p.dt,1,T-1)
+    t = range(0.0,1,T)#range(p.dt,1,T-1)
     # initiale matrices to save data
-    a1_all = zeros(Nx, Ny,T-1)
-    a2_all = zeros(Nx, Ny,T-1)
-    d_all = zeros(Nx, Ny,T-1)
-    H_all = zeros(Nx, Ny,T-1)
+    a1_all = zeros(Nx, Ny,T)
+    a2_all = zeros(Nx, Ny,T)
+    d_all = zeros(Nx, Ny,T)
+    H_all = zeros(Nx, Ny,T)
 
-    # save ID
-    a1_all[:,:,1] = a1_0
-    a2_all[:,:,1] = a2_0
-    d_all[:,:,1] = d0
-    H_all[:,:,1] = H0
+    if isfile(p.savefile)
+        x_loaded, y_loaded, a1_loaded, a2_loaded, d_loaded, H_loaded =
+        deserialize(p.savefile)
+        last_iter = size(a1_loaded,3)
+        first_iter = last_iter + 1
+        # transfer loaded data to a1_all etc
+        # a1_all[:,:,1:first_iter-1] = a1_loaded[:,:,1:first_iter-1]
+        # a2_all[:,:,1:first_iter-1] = a2_loaded[:,:,1:first_iter-1]
+        # d_all[:,:,1:first_iter-1] = d_loaded[:,:,1:first_iter-1]
+        # H_all[:,:,1:first_iter-1] = H_loaded[:,:,1:first_iter-1]
+        a1_all[:,:,1:last_iter] = a1_loaded
+        a2_all[:,:,1:last_iter] = a2_loaded
+        d_all[:,:,1:last_iter] = d_loaded
+        H_all[:,:,1:last_iter] = H_loaded
+
+        # # prepare to first step ti=first_iter-1 (last timestep the checkpoint has saved)
+        # a1 = a1_loaded[:,:,end]
+        # a2 = a2_loaded[:,:,end]
+        # d = d_loaded[:,:,end]
     
-    # prepare to first steps ti=1 that is t=0
-    a1 = a1_0
-    a2 = a2_0
-    d = d0
-    H_old = H0
+        # H_old = H_loaded[:,:,end]
+        # restart state
+        a1 = a1_loaded[:,:,last_iter]
+        a2 = a2_loaded[:,:,last_iter]
+        d  = d_loaded[:,:,last_iter]
+        H_old = H_loaded[:,:,last_iter]
+        
+    else
 
+        # save ID
+        a1_all[:,:,1] = a1_0
+        a2_all[:,:,1] = a2_0
+        d_all[:,:,1] = d0
+        H_all[:,:,1] = H0
+        
+        # prepare to first steps ti=1 that is t=0
+        a1 = a1_0
+        a2 = a2_0
+        d = d0
+        H_old = H0
+
+        first_iter = 2
+    end
+    
     killfile = "runs/kill"
 
-    for ti in 2:T-1
+    for ti in first_iter:T#first_iter:T-1
         
         # -------------------------
         # KILL SWITCH CHECK
@@ -192,18 +229,20 @@ end
 # Run example
 p = Params(    
     left_x_BC = "Dirichlet", # "traction" 
-    right_x_BC = "traction", # or "traction"
+    right_x_BC = "Dirichlet", # or "traction"
     y_BC="traction_free",
-    λ = 1.0,
-    μ = 1.0,
+    λ = 121.15,#1.0,
+    μ = 80.77,#1.0,
     Nx = 40,
     Ny = 40,
-    max_iter = 200,
-    T = 100 + 1,
+    max_iter = 5,
+    T = 1*500 + 1,
     γstar = -1.0,
     k = 1e-6,
-    C3 = 50,
-    savefile="runs/sol_Dirichlet_traction_gammastar_m1_lambda_1_mu_1_C3_50.jls"
+    C3 = 0.37*1e3,
+    l = 0.1,
+    savefile="runs/sol_Dirichlet_Dirichlet_gammastar_m1_lambda_121.15_mu_80.77_C3_0.37*1e3_Nx40_Ny40_l0.1_f1right_0.0_f1left_m0.01_steps_500_simple_d_true_nodamage.jls",
+    simple_d = true
 )
 
 x = range(0,p.Lx,p.Nx)
@@ -217,7 +256,7 @@ a2_0 = zeros(p.Nx, p.Ny)
 # phase field Gaussian*step_function
 d0 = zeros(p.Nx, p.Ny)
 f0 = 0.5*(1.0 .+ tanh.(50*(y .- 0.5)))
-g0 = 0.99*exp.(-(x .- 0.5).^2/(2*0.005))
+g0 = 0.0*exp.(-(x .- 0.5).^2/(2*0.0025))
 for j in 1:p.Ny
     for i in 1:p.Nx
         d0[i,j] = g0[i]*f0[j]

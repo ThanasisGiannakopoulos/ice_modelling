@@ -43,6 +43,7 @@ include("./damage.jl")
 function ti_solver(
     a1::Matrix, a2::Matrix, 
     d::Matrix, H_old::Matrix,
+    t_past::Float64,
     t::Float64, p::Params)
 
     H = copy(H_old)
@@ -53,11 +54,17 @@ function ti_solver(
         a2_old = copy(a2)
         d_old = copy(d)
 
+        # boundary data for left/right boundaries of square domain
+        # for previous timestep
+        f1_left_past, f2_left_past, f1_right_past, f2_right_past = displacement_BC_left_right(t_past, p)
+        
         # get coeffs
         Q111,P111,Q112,P112,
         Q121,P121,Q122,P122,
         Q221,P221,Q222,P222 =
-        build_QP(d_old, a1_old, a2_old,p)
+        build_QP_ghost(d_old, a1_old, a2_old,p,
+        f1_left_past, f1_right_past,
+        f2_left_past, f2_right_past)
 
         # boundary data for left/right boundaries of square domain
         f1_left, f2_left, f1_right, f2_right = displacement_BC_left_right(t, p)
@@ -80,12 +87,12 @@ function ti_solver(
         a2 = reshape(a_sol[Ntot+1:2*Ntot], p.Nx, p.Ny)
 
         # get history
-        H = history(H_old, a1, a2, p)
+        H = history_ghost(H_old, a1, a2, p,f1_left,f1_right)
         println("   Iteration $iter: max(d_old) = ", maximum(d_old))
 
         # phase-field
         if p.simple_d==false
-            Md, bd = build_phase_field_sys(H, p)
+            Md, bd = build_phase_field_sys_auto(H, p)
             d_sol = Md \ bd
             d = reshape(d_sol[1:Ntot], p.Nx, p.Ny)
         else
@@ -188,10 +195,11 @@ function pseudotime_solver(
         end
         
         # get time
+        tt_past = t[ti-1]
         tt = t[ti]
         println("ti = $ti | t = $tt:")
         # solve for ti
-        a1, a2, d, H = ti_solver(a1, a2, d, H_old, tt, p)
+        a1, a2, d, H = ti_solver(a1, a2, d, H_old, tt_past, tt, p)
 
         # save output at the end of iterations
         a1_all[:,:,ti] = copy(a1)
@@ -213,14 +221,14 @@ p = Params(
     μ = 80.77,#1.0,
     Nx = 40,
     Ny = 40,
-    max_iter = 5,
+    max_iter = 10,
     T = 1*500 + 1,
     γstar = -1.0,
     k = 1e-6,
     C3 = 0.37*1e3,
     l = 0.1,
-    savefile="runs/sol_ghosts_gammastar_m1_lambda_121.15_mu_80.77_C3_0.37*1e3_Nx40_Ny40_l0.1_f1right_0.1_steps_500_simple_d_false.jls",
-    simple_d = false
+    savefile="runs/v4_sol_ghosts_all_gammastar_m1_lambda_121.15_mu_80.77_C3_0.37*1e3_Nx40_Ny40_l0.1_f1left_m0.005_f1right_0.005_steps_500_simple_d_true.jls",
+    simple_d = true
 )
 
 x = range(0,p.Lx,p.Nx)
@@ -242,7 +250,8 @@ for j in 1:p.Ny
 end
 
 # history compatible with damage
-H0 = history_from_d(d0, p)
+f1_left_t0, f2_left_t0, f1_right_t0, f2_right_t0 = displacement_BC_left_right(0.0, p)
+H0 = history_from_d(d0, p, f1_left_t0, f1_right_t0)
 
 killfile = "runs/kill"
 

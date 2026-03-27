@@ -21,7 +21,7 @@ begin
 	using Serialization
 
 	x, y, a1_all, a2_all, d_all, H_all =
-     	 	  	deserialize("/home/tgia02/repos/ice_modelling/examples/fracture/elastic/2d/runs/sol_Dirichlet_traction_gammastar_m1_lambda_1_mu_1_C3_50.jls")
+     	 	  	deserialize("/home/tgia02/repos/ice_modelling/examples/fracture/elastic/2d/runs/sol_Dirichlet_Dirichlet_gammastar_m1_lambda_121.15_mu_80.77_C3_0.37*1e3_Nx60_Ny60_l0.05_f1rightmax_0.01_steps_500.jls")
 
 	niter = size(d_all, 3)
 
@@ -147,6 +147,8 @@ begin
 	epsilon_12 = 0.5*Dx(x,a2) + 0.5*Dy(y,a1)
 	epsilon_22 = Dy(y,a2)
 	h = H_all[:,:,iter2]
+	res1 = Dx(x,sigma_11) + Dy(y,sigma_12) #sigma_11 + sigma_12
+	res2 = Dx(x,sigma_12) + Dy(y,sigma_22) #sigma_12 + sigma_22
 	
 	print(maximum(d))
 
@@ -197,11 +199,24 @@ begin
 	    xlabel="x",
 	    ylabel="y",
 	    color=:coolwarm)
+
+	p9 = heatmap(x, y, abs.(res1)',
+	    title="res1",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+
+	p10 = heatmap(x, y, abs.(res2)',
+	    title="res2",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
 	
 	plot(p1, p2, p3, p4, 
 		 p5, p6, p7, p8,
-		 layout=(4,2),
-		size=(1200,1600))
+		 p9, p10,
+		 layout=(5,2),
+		size=(1200,2000))
 	
 end
 
@@ -239,6 +254,98 @@ begin
 	plot(pp1, pp2, pp3,
 		 layout=(1,3),
 		size=(2000,600))
+	
+end
+
+# ╔═╡ 51fe0b51-8575-43fd-95bf-4b7a75ab2cb7
+begin	
+	@bind iter4 Slider(1:niter, default=1)
+		
+end
+
+# ╔═╡ b0b94109-06b3-406f-b791-59114632c9a9
+begin
+
+	# tune by hand
+	llambda = 1.0
+	mmu = 1.0
+	gammastar = -1.0
+	k = 1e-6
+	
+	# degradation function
+	function degr(f,i,j,)
+    	return (1.0-f[i,j])^2 + k
+	end
+
+	ddd = d_all[:,:,iter4]
+	aaa1 = d_all[:,:,iter4]
+	aaa2 = d_all[:,:,iter4]
+	a1x = Dx(x,aaa1)
+	a2x = Dx(x,aaa2)
+	a1y = Dy(y,aaa1)
+	a2y = Dy(y,aaa2)
+
+	gg = 0.0*similar(ddd)
+	mp = 0.0*similar(ddd)
+	for j in 1:Ny, i in 1:Nx
+			# pressure
+            pres = (a1x[i,j] + a2y[i,j])
+            # mask
+            if pres <= 0
+                mp[i,j] = 1.0 + gammastar*(1.0 - degr(ddd, i, j))
+            else    
+                mp[i,j] = degr(ddd, i, j)
+            end
+			gg[i,j] = degr(ddd, i, j)
+	end	
+	
+	ssigma_11 = (llambda + 2*mmu/3).*mp.*(a1x .+ a2y) .+ 2 .*gg*mmu*(2*a1x .- a2y)/3
+	ssigma_12 = gg .*mmu*a2x .+ gg.*mmu.*a1y
+	ssigma_22 = (llambda + 2*mmu/3).*mp.*(a1x .+ a2y) .+ 2 .*gg*mmu*(-a1x .+ 2*a2y)/3
+	
+	rres1 = Dx(x,ssigma_11) + Dy(y,ssigma_12)
+	rres2 = Dx(x,ssigma_12) + Dy(y,ssigma_22)
+	
+	ppp1 = heatmap(x, y, ddd',
+	    title="d",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+
+	ppp2 = heatmap(x, y, ssigma_11',
+	    title="σ₁₁",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+	
+	ppp3 = heatmap(x, y, ssigma_12',
+	    title="σ₁₂",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+	
+	ppp4 = heatmap(x, y, ssigma_22',
+	    title="σ₂₂",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+
+	ppp5 = heatmap(x, y, abs.(rres1)',
+	    title="res1",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+
+	ppp6 = heatmap(x, y, abs.(rres2)',
+	    title="res2",
+	    xlabel="x",
+	    ylabel="y",
+	    color=:coolwarm)
+	
+	plot(ppp1, ppp2, ppp3, ppp4, 
+		 ppp5, ppp6,
+		 layout=(3,2),
+		size=(1200,1200))
 	
 end
 
@@ -1402,5 +1509,7 @@ version = "1.13.0+0"
 # ╠═284d1b38-a496-4b06-85e1-a906372324ca
 # ╠═b564e6d3-82ee-4a77-815a-c992caec08c8
 # ╠═22e7a388-229a-428d-aa74-22ef1a4c9a1b
+# ╠═51fe0b51-8575-43fd-95bf-4b7a75ab2cb7
+# ╠═b0b94109-06b3-406f-b791-59114632c9a9
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

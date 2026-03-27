@@ -18,6 +18,19 @@ function Dx(f,i,j,p::Params)
     end
 end
 
+# use prescribed Dirichlet BC
+function Dx_ghost(f,i,j,p::Params, f_left, f_right)
+    Nx = p.Nx
+    Δx = p.Δx
+    if i == 1
+        return (f[i+1,j] - f_left[j]) / (2*Δx)
+    elseif i == Nx
+        return (f_right[j] - f[i-1,j]) / (2*Δx)
+    else
+        return (f[i+1,j] - f[i-1,j]) / (2*Δx)
+    end
+end
+
 function Dy(f,i,j,p::Params)
     Ny = p.Ny
     Δy = p.Δy
@@ -26,7 +39,20 @@ function Dy(f,i,j,p::Params)
     elseif j == Ny
         return (f[i,j] - f[i,j-1]) / Δy
     else
-        return (f[i,j+1] - f[i,j-1]) / (2Δy)
+        return (f[i,j+1] - f[i,j-1]) / (2*Δy)
+    end
+end
+
+# use the fact that the ghost point copies the value of the last point in the grid, in the y direction
+function Dy_ghost(f,i,j,p::Params)
+    Ny = p.Ny
+    Δy = p.Δy
+    if j == 1
+        return (f[i,j+1] - f[i,j]) / (2*Δy) # assumes f[i,j-1] = f[i,j]
+    elseif j == Ny
+        return (f[i,j] - f[i,j-1]) / (2*Δy) # assumes f[i,j+1] = f[i,j]
+    else
+        return (f[i,j+1] - f[i,j-1]) / (2*Δy)
     end
 end
 
@@ -42,6 +68,20 @@ function Dxx(f,i,j,p::Params)
     end
 end
 
+# use prescribed Dirichlet BC
+function Dxx_ghost(f,i,j,p::Params, f_left, f_right)
+    Nx = p.Nx
+    Δx = p.Δx
+    if i == 1
+        return (f_left[j] - 2*f[i,j] + f[i+1,j]) / Δx^2
+    elseif i == Nx
+        return (f[i-1,j] - 2*f[i,j] + f_right[j]) / Δx^2
+    else
+        return (f[i-1,j] - 2*f[i,j] + f[i+1,j]) / Δx^2
+    end
+end
+
+
 function Dyy(f,i,j,p::Params)
     Ny = p.Ny
     Δy = p.Δy
@@ -49,6 +89,19 @@ function Dyy(f,i,j,p::Params)
         return (f[i,1] - 2*f[i,2] + f[i,3]) / Δy^2
     elseif j == Ny
         return (f[i,Ny-2] - 2*f[i,Ny-1] + f[i,Ny]) / Δy^2
+    else
+        return (f[i,j-1] - 2*f[i,j] + f[i,j+1]) / Δy^2
+    end
+end
+
+# use the fact that the ghost point copies the value of the last point in the grid, in the y direction
+function Dyy_ghost(f,i,j,p::Params)
+    Ny = p.Ny
+    Δy = p.Δy
+    if j == 1
+        return (- f[i,j] + f[i,j+1]) / Δy^2 # assumes f[i,j-1] = f[i,j]
+    elseif j == Ny
+        return (f[i,j-1] - f[i,j]) / Δy^2 # assumes f[i,j+1] = f[i,j]
     else
         return (f[i,j-1] - 2*f[i,j] + f[i,j+1]) / Δy^2
     end
