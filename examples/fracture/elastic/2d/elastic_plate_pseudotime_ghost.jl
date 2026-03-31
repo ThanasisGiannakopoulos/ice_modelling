@@ -1,4 +1,8 @@
-using LinearAlgebra, Parameters, Serialization
+using LinearAlgebra, Parameters, Serialization, Dates
+
+if isdir("./runs/")==false
+    mkdir("./runs/")
+end
 
 # Define parameters
 Base.@kwdef struct Params
@@ -22,7 +26,7 @@ Base.@kwdef struct Params
     parameter for star-convex energy split
     with γstar>=-1, γstar=-1 is standard model and γstar=0 -s volumetric-deviatoric split
     """
-    γstar::Float64 = 0.0
+    γstar::Float64 = -1.0
     simple_d::Bool = false # solve the phase field eq w/ ∂^2 (false) or drop ∂^2 (true) 
 end
 
@@ -33,7 +37,7 @@ include("./utilities.jl")
 include("./coeffs.jl")
 
 # returns M,b for M*a=b, where a=[a1,a2]^T is the elastic displacement in x,y, respectively
-include("./displacement_v2.jl")
+include("./displacement_v3.jl")
 
 # for phase field, history, etc
 include("./damage.jl")
@@ -58,13 +62,19 @@ function ti_solver(
         # for previous timestep
         f1_left_past, f2_left_past, f1_right_past, f2_right_past = displacement_BC_left_right(t_past, p)
         
+        # # get coeffs
+        # Q111,P111,Q112,P112,
+        # Q121,P121,Q122,P122,
+        # Q221,P221,Q222,P222 =
+        # build_QP_ghost(d_old, a1_old, a2_old,p,
+        # f1_left_past, f1_right_past,
+        # f2_left_past, f2_right_past)
+        
         # get coeffs
         Q111,P111,Q112,P112,
         Q121,P121,Q122,P122,
         Q221,P221,Q222,P222 =
-        build_QP_ghost(d_old, a1_old, a2_old,p,
-        f1_left_past, f1_right_past,
-        f2_left_past, f2_right_past)
+        build_QP_gammastar(d_old, a1_old, a2_old,p)
 
         # boundary data for left/right boundaries of square domain
         f1_left, f2_left, f1_right, f2_right = displacement_BC_left_right(t, p)
@@ -87,12 +97,13 @@ function ti_solver(
         a2 = reshape(a_sol[Ntot+1:2*Ntot], p.Nx, p.Ny)
 
         # get history
-        H = history_ghost(H_old, a1, a2, p,f1_left,f1_right)
+        #H = history_ghost(H_old, a1, a2, p,f1_left,f1_right)
+        H = history_gammastar(H_old, a1, a2, p)
         println("   Iteration $iter: max(d_old) = ", maximum(d_old))
 
         # phase-field
         if p.simple_d==false
-            Md, bd = build_phase_field_sys_auto(H, p)
+            Md, bd = build_phase_field_sys(H, p)
             d_sol = Md \ bd
             d = reshape(d_sol[1:Ntot], p.Nx, p.Ny)
         else
@@ -118,6 +129,8 @@ function pseudotime_solver(
     a1_0::Matrix, a2_0::Matrix, 
     d0::Matrix, H0::Matrix, 
     p::Params)
+
+    start_time = now()
 
     Nx, Ny = p.Nx, p.Ny # number of spatial nodes
     T = p.T # number of pseudotemporal steps
@@ -211,9 +224,23 @@ function pseudotime_solver(
         H_old = copy(H)
     end
 
+    end_time = now()
+    # Compute total elapsed time in minutes
+    elapsed_ms = Dates.value(end_time - start_time)  # milliseconds as integer
+    elapsed_minutes = elapsed_ms / 1000 / 60        # convert to minutes
+    println("Total time: ", elapsed_minutes, " minutes")
+
     return a1_all, a2_all, d_all, H_all
 end
 
+function displacement_BC_left_right(t::Float64, p::Params)
+    f1_left  = -0.0*t*1e-2*ones(p.Ny) # 0.0*ones(p.Ny)
+    f2_left  = -0*1e-1*ones(p.Ny)
+    
+    f1_right =  0.0*t*1e-2*ones(p.Ny) # t*0.5*1e-1*ones(p.Ny)
+    f2_right =  -1.0*t*1e-2*ones(p.Ny) # 0*1e-1*ones(p.Ny)
+    return f1_left, f2_left, f1_right, f2_right
+end
 
 # Run example
 p = Params(    
@@ -223,12 +250,12 @@ p = Params(
     Ny = 40,
     max_iter = 10,
     T = 1*500 + 1,
-    γstar = -1.0,
+    γstar = 0.0,
     k = 1e-6,
     C3 = 0.37*1e3,
-    l = 0.1,
-    savefile="runs/v4_sol_ghosts_all_gammastar_m1_lambda_121.15_mu_80.77_C3_0.37*1e3_Nx40_Ny40_l0.1_f1left_m0.005_f1right_0.005_steps_500_simple_d_true.jls",
-    simple_d = true
+    l = 0.075,
+    savefile="runs/sol_gammastar_0_lambda_121.15_mu_80.77_C3_0.37*1e3_Nx40_Ny40_l0.075_ID_notch_f2right_m0.01_steps_500_simple_d_false.jls",
+    simple_d = false
 )
 
 x = range(0,p.Lx,p.Nx)
@@ -242,10 +269,20 @@ a2_0 = zeros(p.Nx, p.Ny)
 # phase field Gaussian*step_function
 d0 = zeros(p.Nx, p.Ny)
 f0 = 0.5*(1.0 .+ tanh.(50*(y .- 0.5)))
-g0 = 0.95*exp.(-(x .- 0.5).^2/(2*0.0025))
+g0 = 0.95*exp.(-(x .- 0.5).^2/(2*0.00125))
+# for j in 1:p.Ny
+#     for i in 1:p.Nx
+#         d0[i,j] = g0[i]*f0[j]
+#     end
+# end
+
+# notch ID
 for j in 1:p.Ny
     for i in 1:p.Nx
-        d0[i,j] = g0[i]*f0[j]
+        #d0[i,j] = g0[i]*f0[j]
+        if i == Int(p.Nx/2)
+            d0[i,j] = f0[j]
+        end 
     end
 end
 

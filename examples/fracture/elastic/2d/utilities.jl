@@ -11,13 +11,14 @@ function Dx(f,i,j,p::Params)
     Δx = p.Δx
     if i == 1
         return (f[i+1,j] - f[i,j]) / Δx
+        #(-11/6*f[i,j] + 3*f[i+1,j] -3/2*f[i+2,j] +1/3*f[i+3,j])/Δx #(-0.5*f[i+2,j] + 2.0*f[i+1,j] - 1.5*f[i,j]) / Δx 
     elseif i == Nx
         return (f[i,j] - f[i-1,j]) / Δx
+        #(11/6*f[i,j] - 3*f[i-1,j] +3/2*f[i-2,j] -1/3*f[i-3,j])/Δx 
     else
         return (f[i+1,j] - f[i-1,j]) / (2Δx)
     end
 end
-
 # use prescribed Dirichlet BC
 function Dx_ghost(f,i,j,p::Params, f_left, f_right)
     Nx = p.Nx
@@ -36,8 +37,10 @@ function Dy(f,i,j,p::Params)
     Δy = p.Δy
     if j == 1
         return (f[i,j+1] - f[i,j]) / Δy
+        #(-11/6*f[i,j] + 3*f[i,j+1] -3/2*f[i,j+2] +1/3*f[i,j+3])/Δy 
     elseif j == Ny
         return (f[i,j] - f[i,j-1]) / Δy
+        #(11/6*f[i,j] - 3*f[i,j-1] +3/2*f[i,j-2] -1/3*f[i,j-3])/Δy 
     else
         return (f[i,j+1] - f[i,j-1]) / (2*Δy)
     end

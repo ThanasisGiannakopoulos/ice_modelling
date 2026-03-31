@@ -50,10 +50,10 @@ function build_phase_field_sys(H, p::Params)
     
     # corner i=1,j=1
     k = lin(1,1,Nx)
-    #M[k,k] += -1/Δx
-    #M[k,lin(2,1,Nx)] += 1/Δx
-    M[k,k] += -1/Δy
-    M[k,lin(1,2,Nx)] += 1/Δy
+    M[k,k] += -1/Δx
+    M[k,lin(2,1,Nx)] += 1/Δx
+    #M[k,k] += -1/Δy
+    #M[k,lin(1,2,Nx)] += 1/Δy
     
     # corner i=1,j=Ny
     k = lin(1,Ny,Nx)
@@ -279,7 +279,8 @@ function history_from_d(d, p::Params,f1_left,f1_right)
 
     for j in 1:Ny
         for i in 1:Nx
-            H[i,j] = (d[i,j] -p.l^2*(Dxx_ghost(d,i,j,p,f1_left,f1_right) + Dyy_ghost(d,i,j,p)))/(2*p.l*p.C3*(1-d[i,j]+p.k))
+            H[i,j] = (d[i,j] -p.l^2*(Dxx(d,i,j,p) + Dyy(d,i,j,p)))/(2*p.l*p.C3*(1-d[i,j]+p.k))
+            #H[i,j] = (d[i,j] -p.l^2*(Dxx_ghost(d,i,j,p,f1_left,f1_right) + Dyy_ghost(d,i,j,p)))/(2*p.l*p.C3*(1-d[i,j]+p.k))
         end
     end
 
@@ -340,6 +341,33 @@ function history_ghost(H_old, a1, a2, p::Params,f1_left,f1_right)
     for j in 1:p.Ny
         for i in 1:p.Nx
             H_new[i,j] = (λ + 2*μ/2)*(Dx_ghost(a1,i,j,p,f1_left,f1_right) + Dy_ghost(a2,i,j,p))^2
+        end
+    end
+    return max.(H_old, H_new)
+end
+
+# gammastar model history
+function history_gammastar(H_old, a1, a2, p::Params)
+    λ, μ, γstar = p.λ, p.μ, p.γstar
+    n = 3 # spatial dimensions
+    κ = λ + 2*μ/n
+    H_new = zeros(p.Nx,p.Ny)
+    for j in 1:p.Ny
+        for i in 1:p.Nx
+            a1x = Dx(a1,i,j,p)
+            a1y = Dy(a1,i,j,p)
+            a2x = Dx(a2,i,j,p)
+            a2y = Dy(a2,i,j,p)
+
+            # trace of epsilon
+            tre = a1x + a2y
+            # plus and minus contribs
+            tre_plus = 0.5*(tre + abs(tre))
+            tre_minus = 0.5*(tre - abs(tre))
+            # Frobenius norm of deviatoric part of elastic stress tensor epsilon, squared
+            e_dev_norm2 = ((2*a1x-a2y)/3)^2 + 2*((a2x + a1y)/2)^2 + ((-a1x + 2*a2y)/3)^2 + ((-a1x + a2y)/3)^2
+            # history
+            H_new[i,j] = μ*e_dev_norm2 + 0.5*κ*(tre_plus^2 - p.γstar*tre_minus^2)
         end
     end
     return max.(H_old, H_new)

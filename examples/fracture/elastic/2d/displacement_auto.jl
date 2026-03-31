@@ -49,10 +49,10 @@ function build_displacement_system(
             k1 = k
             k2 = k + Ntot
 
-            # skip Dirichlet nodes (already set)
-            if i == 1 || i == Nx
-                continue
-            end
+            # # skip Dirichlet nodes (already set)
+            # if i == 1 || i == Nx
+            #     continue
+            # end
 
             # --- Neumann handling via mirroring ---
             jm = (j == 1)  ? j : j-1
@@ -106,37 +106,155 @@ function build_displacement_system(
             Q222_i_j_mhalf = 0.5*(Q222[i,jm] + Q222[i,j])
             Q222_i_j_phalf = 0.5*(Q222[i,j]  + Q222[i,jp])
 
+            # # =========================
+            # # EQUATIONS (UNCHANGED CORE)
+            # # =========================
+
+            # # --- a1 equation ---
+            # M[k1,lin(i-1,j,Nx)] += Q111_i_mhalf_j/(Δx^2)
+            # M[k1,lin(i+1,j,Nx)] += Q111_i_phalf_j/(Δx^2)
+            # M[k1,lin(i,jm,Nx)] += P121_i_j_mhalf/(Δy^2)
+            # M[k1,lin(i,jp,Nx)] += P121_i_j_phalf/(Δy^2)
+
+            # M[k1,k1] += -(Q111_i_mhalf_j + Q111_i_phalf_j)/(Δx^2)
+            # M[k1,k1] += -(P121_i_j_mhalf + P121_i_j_phalf)/(Δy^2)
+
+            # # coupling with a2
+            # M[k1,k2] += -(Q112_i_mhalf_j + Q112_i_phalf_j)/(Δx^2)
+            # M[k1,k2] += -(P122_i_j_mhalf + P122_i_j_phalf)/(Δy^2)
+
+            # # --- a2 equation ---
+            # M[k2,lin(i-1,j,Nx)] += Q121_i_mhalf_j/(Δx^2)
+            # M[k2,lin(i+1,j,Nx)] += Q121_i_phalf_j/(Δx^2)
+            # M[k2,lin(i,jm,Nx)] += P221_i_j_mhalf/(Δy^2)
+            # M[k2,lin(i,jp,Nx)] += P221_i_j_phalf/(Δy^2)
+
+            # M[k2,k1] += -(Q121_i_mhalf_j + Q121_i_phalf_j)/(Δx^2)
+            # M[k2,k1] += -(P221_i_j_mhalf + P221_i_j_phalf)/(Δy^2)
+
+            # M[k2,k2] += -(Q122_i_mhalf_j + Q122_i_phalf_j)/(Δx^2)
+            # M[k2,k2] += -(P222_i_j_mhalf + P222_i_j_phalf)/(Δy^2)
+
             # =========================
-            # EQUATIONS (UNCHANGED CORE)
+            # 9-POINT STENCIL (FULL)
             # =========================
 
             # --- a1 equation ---
+
+            # axial (original)
             M[k1,lin(i-1,j,Nx)] += Q111_i_mhalf_j/(Δx^2)
             M[k1,lin(i+1,j,Nx)] += Q111_i_phalf_j/(Δx^2)
             M[k1,lin(i,jm,Nx)] += P121_i_j_mhalf/(Δy^2)
             M[k1,lin(i,jp,Nx)] += P121_i_j_phalf/(Δy^2)
 
+###
+# added manually
+            # axial (original)
+            M[k1,lin(i-1,j,Nx)+Ntot] += Q112_i_mhalf_j/(Δx^2)
+            M[k1,lin(i+1,j,Nx)+Ntot] += Q112_i_phalf_j/(Δx^2)
+            M[k1,lin(i,jm,Nx)+Ntot] += P122_i_j_mhalf/(Δy^2)
+            M[k1,lin(i,jp,Nx)+Ntot] += P122_i_j_phalf/(Δy^2)
+###
+
+            # center (original)
             M[k1,k1] += -(Q111_i_mhalf_j + Q111_i_phalf_j)/(Δx^2)
             M[k1,k1] += -(P121_i_j_mhalf + P121_i_j_phalf)/(Δy^2)
 
-            # coupling with a2
+            # coupling center (original)
             M[k1,k2] += -(Q112_i_mhalf_j + Q112_i_phalf_j)/(Δx^2)
             M[k1,k2] += -(P122_i_j_mhalf + P122_i_j_phalf)/(Δy^2)
 
+            # --- mixed terms (a1-a1) ---
+            # diagonals
+            M[k1,lin(i-1,jm,Nx)] +=  0.25*(P111_i_mhalf_j + Q121_i_j_mhalf)/(Δx*Δy)
+            M[k1,lin(i-1,jp,Nx)] += -0.25*(P111_i_mhalf_j + Q121_i_j_phalf)/(Δx*Δy)
+            M[k1,lin(i+1,jm,Nx)] += -0.25*(P111_i_phalf_j + Q121_i_j_mhalf)/(Δx*Δy)
+            M[k1,lin(i+1,jp,Nx)] +=  0.25*(P111_i_phalf_j + Q121_i_j_phalf)/(Δx*Δy)
+
+            # axial corrections
+            M[k1,lin(i-1,j,Nx)] +=  0.25*(Q121_i_j_mhalf - Q121_i_j_phalf)/(Δx*Δy)
+            M[k1,lin(i+1,j,Nx)] +=  0.25*(Q121_i_j_phalf - Q121_i_j_mhalf)/(Δx*Δy)
+            M[k1,lin(i,jm,Nx)] +=  0.25*(P111_i_mhalf_j - P111_i_phalf_j)/(Δx*Δy)
+            M[k1,lin(i,jp,Nx)] +=  0.25*(P111_i_phalf_j - P111_i_mhalf_j)/(Δx*Δy)#
+
+            # --- mixed terms (a1-a2 coupling) ---
+
+            # diagonals
+            M[k1,lin(i-1,jm,Nx)+Ntot] +=  0.25*(P112_i_mhalf_j + Q122_i_j_mhalf)/(Δx*Δy)
+            M[k1,lin(i-1,jp,Nx)+Ntot] += -0.25*(P112_i_mhalf_j + Q122_i_j_phalf)/(Δx*Δy)
+            M[k1,lin(i+1,jm,Nx)+Ntot] += -0.25*(P112_i_phalf_j + Q122_i_j_mhalf)/(Δx*Δy)
+            M[k1,lin(i+1,jp,Nx)+Ntot] +=  0.25*(P112_i_phalf_j + Q122_i_j_phalf)/(Δx*Δy)
+
+            # axial corrections
+            M[k1,lin(i-1,j,Nx)+Ntot] +=  0.25*(Q122_i_j_mhalf - Q122_i_j_phalf)/(Δx*Δy) # i should have an extra term
+            M[k1,lin(i+1,j,Nx)+Ntot] +=  0.25*(Q122_i_j_phalf - Q122_i_j_mhalf)/(Δx*Δy)# i have a term extra
+            M[k1,lin(i,jm,Nx)+Ntot] +=  0.25*(P112_i_mhalf_j - P112_i_phalf_j)/(Δx*Δy)# i have a term extra
+            M[k1,lin(i,jp,Nx)+Ntot] +=  0.25*(P112_i_phalf_j - P112_i_mhalf_j)/(Δx*Δy)# i have a term extra
+
+# here
+
             # --- a2 equation ---
+
+            # axial (original)
             M[k2,lin(i-1,j,Nx)] += Q121_i_mhalf_j/(Δx^2)
             M[k2,lin(i+1,j,Nx)] += Q121_i_phalf_j/(Δx^2)
             M[k2,lin(i,jm,Nx)] += P221_i_j_mhalf/(Δy^2)
             M[k2,lin(i,jp,Nx)] += P221_i_j_phalf/(Δy^2)
+####
+# added manually
+            # axial (original)
+            M[k2,lin(i-1,j,Nx)+Ntot] += Q122_i_mhalf_j/(Δx^2)
+            M[k2,lin(i+1,j,Nx)+Ntot] += Q122_i_phalf_j/(Δx^2)
+            M[k2,lin(i,jm,Nx)+Ntot] += P222_i_j_mhalf/(Δy^2)
+            M[k2,lin(i,jp,Nx)+Ntot] += P222_i_j_phalf/(Δy^2)
 
+##            
+            # center (original)
             M[k2,k1] += -(Q121_i_mhalf_j + Q121_i_phalf_j)/(Δx^2)
             M[k2,k1] += -(P221_i_j_mhalf + P221_i_j_phalf)/(Δy^2)
 
             M[k2,k2] += -(Q122_i_mhalf_j + Q122_i_phalf_j)/(Δx^2)
             M[k2,k2] += -(P222_i_j_mhalf + P222_i_j_phalf)/(Δy^2)
 
+            # --- mixed terms (a2-a1) ---
+
+            # diagonals
+            M[k2,lin(i-1,jm,Nx)] +=  0.25*(P121_i_mhalf_j + Q221_i_j_mhalf)/(Δx*Δy)
+            M[k2,lin(i-1,jp,Nx)] += -0.25*(P121_i_mhalf_j + Q221_i_j_phalf)/(Δx*Δy)
+            M[k2,lin(i+1,jm,Nx)] += -0.25*(P121_i_phalf_j + Q221_i_j_mhalf)/(Δx*Δy)
+            M[k2,lin(i+1,jp,Nx)] +=  0.25*(P121_i_phalf_j + Q221_i_j_phalf)/(Δx*Δy)
+
+            # axial corrections
+            M[k2,lin(i-1,j,Nx)] +=  0.25*(Q221_i_j_mhalf - Q221_i_j_phalf)/(Δx*Δy)
+            M[k2,lin(i+1,j,Nx)] +=  0.25*(Q221_i_j_phalf - Q221_i_j_mhalf)/(Δx*Δy)
+            M[k2,lin(i,jm,Nx)] +=  0.25*(P121_i_mhalf_j - P121_i_phalf_j)/(Δx*Δy)
+            M[k2,lin(i,jp,Nx)] +=  0.25*(P121_i_phalf_j - P121_i_mhalf_j)/(Δx*Δy)
+
+            # --- mixed terms (a2-a2) ---
+
+            # diagonals
+            M[k2,lin(i-1,jm,Nx)+Ntot] +=  0.25*(P122_i_mhalf_j + Q222_i_j_mhalf)/(Δx*Δy)
+            M[k2,lin(i-1,jp,Nx)+Ntot] += -0.25*(P122_i_mhalf_j + Q222_i_j_phalf)/(Δx*Δy)
+            M[k2,lin(i+1,jm,Nx)+Ntot] += -0.25*(P122_i_phalf_j + Q222_i_j_mhalf)/(Δx*Δy)
+            M[k2,lin(i+1,jp,Nx)+Ntot] +=  0.25*(P122_i_phalf_j + Q222_i_j_phalf)/(Δx*Δy)
+
+            # axial corrections
+            M[k2,lin(i-1,j,Nx)+Ntot] +=  0.25*(Q222_i_j_mhalf - Q222_i_j_phalf)/(Δx*Δy)
+            M[k2,lin(i+1,j,Nx)+Ntot] +=  0.25*(Q222_i_j_phalf - Q222_i_j_mhalf)/(Δx*Δy)
+            M[k2,lin(i,jm,Nx)+Ntot] +=  0.25*(P122_i_mhalf_j - P122_i_phalf_j)/(Δx*Δy)
+            M[k2,lin(i,jp,Nx)+Ntot] +=  0.25*(P122_i_phalf_j - P122_i_mhalf_j)/(Δx*Δy)
+
         end
     end
 
     return M,b
+end
+
+function displacement_BC_left_right(t::Float64, p::Params)
+    f1_left  = -1.0*t*1e-2*ones(p.Ny) # 0.0*ones(p.Ny)
+    f2_left  = -0*1e-1*ones(p.Ny)
+    
+    f1_right =  0*t*1e-2*ones(p.Ny) # t*0.5*1e-1*ones(p.Ny)
+    f2_right =  -0*1e-2*ones(p.Ny) # 0*1e-1*ones(p.Ny)
+    return f1_left, f2_left, f1_right, f2_right
 end

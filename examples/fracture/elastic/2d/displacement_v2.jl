@@ -819,7 +819,8 @@ function build_displacement_system(
     #M[k1,lin(i-1,j,Nx)+Ntot] = Q112_i_mhalf_j/(Δx^2) + 0.25*(Q122_i_j_mhalf - Q122_i_j_phalf)/(Δx*Δy)
     eq1_a2_i0_j1 = f2_left[j]*(Q112_i_mhalf_j/(Δx^2) + 0.25*(Q122_i_j_mhalf - Q122_i_j_phalf)/(Δx*Δy))
     # a2_i-1_j+1
-    eq1_a2_i0_j2 = f2_left[j+1]*(M[k1,lin(i-1,j+1,Nx)+Ntot] = -0.25*(P112_i_mhalf_j + Q122_i_j_phalf)/(Δx*Δy))
+    #M[k1,lin(i-1,j+1,Nx)+Ntot] = -0.25*(P112_i_mhalf_j + Q122_i_j_phalf)/(Δx*Δy)
+    eq1_a2_i0_j2 = f2_left[j+1]*(-0.25*(P112_i_mhalf_j + Q122_i_j_phalf)/(Δx*Δy))
     # a2_i_j-1
     M[k1,lin(i,j-1,Nx)+Ntot] = 0.25*(P112_i_mhalf_j - P112_i_phalf_j)/(Δx*Δy) + P122_i_j_mhalf/(Δy^2)
     # a2_i_j
@@ -865,13 +866,13 @@ function build_displacement_system(
     # for a2 part
     # a2_i-1_j-1
     #M[k2,lin(i-1,j-1,Nx)+Ntot] = 0.25*(P122_i_mhalf_j + Q222_i_j_mhalf)/(Δx*Δy)
-    eq2_a2_i0_j0 = f2_right[j]*(0.25*(P122_i_mhalf_j + Q222_i_j_mhalf)/(Δx*Δy))
+    eq2_a2_i0_j0 = f2_left[j]*(0.25*(P122_i_mhalf_j + Q222_i_j_mhalf)/(Δx*Δy))
     # a2_i-1_j
     #M[k2,lin(i-1,j,Nx)+Ntot] = Q122_i_mhalf_j/(Δx^2) + 0.25*(Q222_i_j_mhalf - Q222_i_j_phalf)/(Δx*Δy)
-    eq2_a2_i0_j1 = f2_right[j]*(Q122_i_mhalf_j/(Δx^2) + 0.25*(Q222_i_j_mhalf - Q222_i_j_phalf)/(Δx*Δy))
+    eq2_a2_i0_j1 = f2_left[j]*(Q122_i_mhalf_j/(Δx^2) + 0.25*(Q222_i_j_mhalf - Q222_i_j_phalf)/(Δx*Δy))
     # a2_i-1_j+1
     #M[k2,lin(i-1,j+1,Nx)+Ntot] = -0.25*(P122_i_mhalf_j + Q222_i_j_phalf)/(Δx*Δy)
-    eq2_a2_i0_j2 = f2_right[j+1]*(-0.25*(P122_i_mhalf_j + Q222_i_j_phalf)/(Δx*Δy))
+    eq2_a2_i0_j2 = f2_left[j+1]*(-0.25*(P122_i_mhalf_j + Q222_i_j_phalf)/(Δx*Δy))
     # a2_i_j-1
     #M[k2,lin(i,j-1,Nx)+Ntot] = 0.25*(P122_i_mhalf_j - P122_i_phalf_j)/(Δx*Δy) + P222_i_j_mhalf/(Δy^2)
     M[k2,lin(i,j,Nx)+Ntot] += 0.25*(P122_i_mhalf_j - P122_i_phalf_j)/(Δx*Δy) + P222_i_j_mhalf/(Δy^2)
@@ -1189,13 +1190,13 @@ function build_displacement_system(
     M[k2,lin(i,j+1,Nx)+Ntot] = 0.25*(P122_i_phalf_j - P122_i_mhalf_j)/(Δx*Δy) + P222_i_j_phalf/(Δy^2)
     # a2_i+1_j-1
     #M[k2,lin(i+1,j-1,Nx)+Ntot] = -0.25*(P122_i_phalf_j + Q222_i_j_mhalf)/(Δx*Δy)
-    eq2_a2_iNxp1_j0 = f2_left[j]*(-0.25*(P122_i_phalf_j + Q222_i_j_mhalf)/(Δx*Δy))
+    eq2_a2_iNxp1_j0 = f2_right[j]*(-0.25*(P122_i_phalf_j + Q222_i_j_mhalf)/(Δx*Δy))
     # a2_i+1_j
     #M[k2,lin(i+1,j,Nx)+Ntot] = Q122_i_phalf_j/(Δx^2) +0.25*(Q222_i_j_phalf - Q222_i_j_mhalf)/(Δx*Δy)
-    eq2_a2_iNxp1_j1 = f2_left[j]*(Q122_i_phalf_j/(Δx^2) +0.25*(Q222_i_j_phalf - Q222_i_j_mhalf)/(Δx*Δy))
+    eq2_a2_iNxp1_j1 = f2_right[j]*(Q122_i_phalf_j/(Δx^2) +0.25*(Q222_i_j_phalf - Q222_i_j_mhalf)/(Δx*Δy))
     # a2_i+1_j+1
     #M[k2,lin(i+1,j+1,Nx)+Ntot] = 0.25*(P122_i_phalf_j + Q222_i_j_phalf)/(Δx*Δy)
-    eq2_a2_iNxp1_j2 = f2_left[j+1]*(0.25*(P122_i_phalf_j + Q222_i_j_phalf)/(Δx*Δy))
+    eq2_a2_iNxp1_j2 = f2_right[j+1]*(0.25*(P122_i_phalf_j + Q222_i_j_phalf)/(Δx*Δy))
     
     # move to the rhs the i0 terms; pickup minus sign
     b[k2] = -eq2_a1_iNxp1_j0 -eq2_a1_iNxp1_j1 -eq2_a1_iNxp1_j2 -eq2_a2_iNxp1_j0 -eq2_a2_iNxp1_j1 -eq2_a2_iNxp1_j2
@@ -1359,10 +1360,10 @@ function build_displacement_system(
 end
 
 function displacement_BC_left_right(t::Float64, p::Params)
-    f1_left  = -0.5*t*1e-2*ones(p.Ny) # 0.0*ones(p.Ny)
+    f1_left  = -1.0*t*1e-2*ones(p.Ny) # 0.0*ones(p.Ny)
     f2_left  = -0*1e-1*ones(p.Ny)
     
-    f1_right =  0.5*t*1e-2*ones(p.Ny) # t*0.5*1e-1*ones(p.Ny)
+    f1_right =  0*t*1e-2*ones(p.Ny) # t*0.5*1e-1*ones(p.Ny)
     f2_right =  -0*1e-2*ones(p.Ny) # 0*1e-1*ones(p.Ny)
     return f1_left, f2_left, f1_right, f2_right
 end
