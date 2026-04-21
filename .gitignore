@@ -16,3 +16,4 @@ examples/ssa/runs/
 examples/fracture/elastic/1d/runs/
 examples/fracture/viscoelastic/1d/runs/
 runs/
+examples/fracture/elastic/2d/attic/

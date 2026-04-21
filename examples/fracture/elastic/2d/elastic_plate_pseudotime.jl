@@ -1,10 +1,11 @@
-using LinearAlgebra, Parameters, Serialization
+using LinearAlgebra, Parameters, Serialization, Dates
+
+if isdir("./runs/")==false
+    mkdir("./runs/")
+end
 
 # Define parameters
 Base.@kwdef struct Params
-    left_x_BC::String = "traction" # or " Dirichlet"
-    right_x_BC::String = "traction" # or " Dirichlet"
-    y_BC::String = "traction_free" # "Neumann" or "traction_free"
     k::Float64 = 1e-8       # small numerical factor
     λ::Float64 = 1.0
     μ::Float64 = 1.0
@@ -25,7 +26,7 @@ Base.@kwdef struct Params
     parameter for star-convex energy split
     with γstar>=-1, γstar=-1 is standard model and γstar=0 -s volumetric-deviatoric split
     """
-    γstar::Float64 = 0.0
+    γstar::Float64 = -1.0
     simple_d::Bool = false # solve the phase field eq w/ ∂^2 (false) or drop ∂^2 (true) 
 end
 
@@ -46,6 +47,7 @@ include("./damage.jl")
 function ti_solver(
     a1::Matrix, a2::Matrix, 
     d::Matrix, H_old::Matrix,
+    t_past::Float64,
     t::Float64, p::Params)
 
     H = copy(H_old)
@@ -56,11 +58,23 @@ function ti_solver(
         a2_old = copy(a2)
         d_old = copy(d)
 
+        # boundary data for left/right boundaries of square domain
+        # for previous timestep
+        f1_left_past, f2_left_past, f1_right_past, f2_right_past = displacement_BC_left_right(t_past, p)
+        
+        # # get coeffs
+        # Q111,P111,Q112,P112,
+        # Q121,P121,Q122,P122,
+        # Q221,P221,Q222,P222 =
+        # build_QP_ghost(d_old, a1_old, a2_old,p,
+        # f1_left_past, f1_right_past,
+        # f2_left_past, f2_right_past)
+        
         # get coeffs
         Q111,P111,Q112,P112,
         Q121,P121,Q122,P122,
         Q221,P221,Q222,P222 =
-        build_QP(d_old, a1_old, a2_old,p)
+        build_QP_gammastar(d_old, a1_old, a2_old,p)
 
         # boundary data for left/right boundaries of square domain
         f1_left, f2_left, f1_right, f2_right = displacement_BC_left_right(t, p)
@@ -75,31 +89,16 @@ function ti_solver(
             f2_left,f2_right
             )
 
-        # solve for a
-        if p.left_x_BC=="traction" && p.right_x_BC=="traction"
-            C = build_constraints(p)
-            gg = zeros(3)
-            # induced aggregate x translation form x_BC
-            gg[1] = 0.5*(sum(f1_left) + sum(f1_right))/p.Ny
-            # induced aggregate y translation form x_BC
-            gg[2] = 0.5*(sum(f2_left) + sum(f2_right))/p.Ny
-            # induced aggregate rotation from x_BC: x*a2 - y*a1 is rotation
-            gg[3] = 0.5*(sum(x[1]*f2_left .- y.*f1_left) + sum(x[end]*f2_right .- y.*f1_right))/p.Ny
-            K = [M  C;
-                C' zeros(3,3)]
-            rhs = [b;
-                gg]
-            a_sol = K \ rhs
-        else
-            a_sol = M \ b
-        end
+
+        a_sol = M \ b
         Ntot = p.Nx*p.Ny
         # make a1,a2 sols in matrices (x,y, grid functions)
         a1 = reshape(a_sol[1:Ntot], p.Nx, p.Ny)
         a2 = reshape(a_sol[Ntot+1:2*Ntot], p.Nx, p.Ny)
 
         # get history
-        H = history(H_old, a1, a2, p)
+        #H = history_ghost(H_old, a1, a2, p,f1_left,f1_right)
+        H = history_gammastar(H_old, a1, a2, p)
         println("   Iteration $iter: max(d_old) = ", maximum(d_old))
 
         # phase-field
@@ -130,6 +129,8 @@ function pseudotime_solver(
     a1_0::Matrix, a2_0::Matrix, 
     d0::Matrix, H0::Matrix, 
     p::Params)
+
+    start_time = now()
 
     Nx, Ny = p.Nx, p.Ny # number of spatial nodes
     T = p.T # number of pseudotemporal steps
@@ -207,10 +208,11 @@ function pseudotime_solver(
         end
         
         # get time
+        tt_past = t[ti-1]
         tt = t[ti]
         println("ti = $ti | t = $tt:")
         # solve for ti
-        a1, a2, d, H = ti_solver(a1, a2, d, H_old, tt, p)
+        a1, a2, d, H = ti_solver(a1, a2, d, H_old, tt_past, tt, p)
 
         # save output at the end of iterations
         a1_all[:,:,ti] = copy(a1)
@@ -222,27 +224,38 @@ function pseudotime_solver(
         H_old = copy(H)
     end
 
+    end_time = now()
+    # Compute total elapsed time in minutes
+    elapsed_ms = Dates.value(end_time - start_time)  # milliseconds as integer
+    elapsed_minutes = elapsed_ms / 1000 / 60        # convert to minutes
+    println("Total time: ", elapsed_minutes, " minutes")
+
     return a1_all, a2_all, d_all, H_all
 end
 
+function displacement_BC_left_right(t::Float64, p::Params)
+    f1_left  = -0.0*t*1e-2*ones(p.Ny) # 0.0*ones(p.Ny)
+    f2_left  = -0*1e-1*ones(p.Ny)
+    
+    f1_right =  1.0*t*1e-2*ones(p.Ny) # t*0.5*1e-1*ones(p.Ny)
+    f2_right =  -0.0*t*1e-2*ones(p.Ny) # 0*1e-1*ones(p.Ny)
+    return f1_left, f2_left, f1_right, f2_right
+end
 
 # Run example
 p = Params(    
-    left_x_BC = "Dirichlet", # "traction" 
-    right_x_BC = "Dirichlet", # or "traction"
-    y_BC="traction_free",
     λ = 121.15,#1.0,
     μ = 80.77,#1.0,
     Nx = 40,
     Ny = 40,
-    max_iter = 5,
+    max_iter = 10,
     T = 1*500 + 1,
     γstar = -1.0,
     k = 1e-6,
     C3 = 0.37*1e3,
-    l = 0.1,
-    savefile="runs/sol_Dirichlet_Dirichlet_gammastar_m1_lambda_121.15_mu_80.77_C3_0.37*1e3_Nx40_Ny40_l0.1_f1right_0.0_f1left_m0.01_steps_500_simple_d_true_nodamage.jls",
-    simple_d = true
+    l = 0.075,
+    savefile="runs/sol_gammastar_m1_lambda_121.15_mu_80.77_C3_0.37*1e3_Nx40_Ny40_l0.075_ID_notch_f1right_0.01_steps_500_simple_d_false.jls",
+    simple_d = false
 )
 
 x = range(0,p.Lx,p.Nx)
@@ -256,15 +269,26 @@ a2_0 = zeros(p.Nx, p.Ny)
 # phase field Gaussian*step_function
 d0 = zeros(p.Nx, p.Ny)
 f0 = 0.5*(1.0 .+ tanh.(50*(y .- 0.5)))
-g0 = 0.0*exp.(-(x .- 0.5).^2/(2*0.0025))
+g0 = 0.95*exp.(-(x .- 0.5).^2/(2*0.00125))
+# for j in 1:p.Ny
+#     for i in 1:p.Nx
+#         d0[i,j] = g0[i]*f0[j]
+#     end
+# end
+
+# notch ID
 for j in 1:p.Ny
     for i in 1:p.Nx
-        d0[i,j] = g0[i]*f0[j]
+        #d0[i,j] = g0[i]*f0[j]
+        if i == Int(p.Nx/2)
+            d0[i,j] = f0[j]
+        end 
     end
 end
 
 # history compatible with damage
-H0 = history_from_d(d0, p)
+f1_left_t0, f2_left_t0, f1_right_t0, f2_right_t0 = displacement_BC_left_right(0.0, p)
+H0 = history_from_d(d0, p, f1_left_t0, f1_right_t0)
 
 killfile = "runs/kill"
 
